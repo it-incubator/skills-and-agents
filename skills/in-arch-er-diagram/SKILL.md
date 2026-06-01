@@ -1,5 +1,5 @@
 ---
-name: arch-er-diagram
+name: in-arch-er-diagram
 description: Generate Entity Relationship diagrams in PlantUML format with detailed notes for each table. Use when user asks to create ER diagrams, database diagrams, schema diagrams, or says "er diagram", "erd", "схема базы данных", "диаграмма сущностей", "ER-диаграмма".
 ---
 

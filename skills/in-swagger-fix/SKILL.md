@@ -1,5 +1,5 @@
 ---
-name: swagger-fix
+name: in-swagger-fix
 description: Organize and complete Swagger decorators for NestJS controllers. Creates proper decorator files, DTOs, response types with full ApiProperty coverage. Use when user says "swagger fix", "fix swagger", "swagger decorators", "приведи swagger в порядок", "swagger декораторы", "исправь свагер".
 ---
 

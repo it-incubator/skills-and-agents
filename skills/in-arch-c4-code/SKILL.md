@@ -1,5 +1,5 @@
 ---
-name: arch-c4-code
+name: in-arch-c4-code
 description: Generate C4 level 4 (Code) diagrams in PlantUML format from existing component diagrams. Use when user asks to generate code-level diagrams, or says "c4 code", "c4-code", "код диаграммы", "диаграммы кода", "уровень 4", "level 4".
 ---
 

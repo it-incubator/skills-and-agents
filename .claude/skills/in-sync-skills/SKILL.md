@@ -1,5 +1,5 @@
 ---
-name: sync-skills
+name: in-sync-skills
 description: Sync skills and agents from the skills-and-agents repo to the developer's global AI tool config (Claude Code, Codex, Cursor) or to a specific project folder. Use when the user says "sync skills", "sync agents", "install team skills", "обнови скиллы", "синхронизируй скиллы", or after pulling updates to this repo.
 ---
 
@@ -13,9 +13,9 @@ Copy the team's shared `skills/` and `agents/` directories from the skills-and-a
 Supported tools: **Claude Code**, **Codex**, **Cursor**. Anything else is rejected with a message asking the user to contact Dmitry Kuzyuberdin.
 
 ## Architecture
-- Source of truth lives at `skills/sync-skills/SKILL.md` inside the skills-and-agents repo.
-- Bootstrap copies live at `.claude/skills/sync-skills/`, `.codex/skills/sync-skills/`, `.cursor/skills/sync-skills/` so a freshly cloned developer can invoke this skill no matter which of the three tools they opened the repo in.
-- Step 9 below re-copies the source-of-truth into the three bootstrap locations on every run, so editing `skills/sync-skills/SKILL.md` automatically propagates.
+- Source of truth lives at `skills/in-sync-skills/SKILL.md` inside the skills-and-agents repo.
+- Bootstrap copies live at `.claude/skills/in-sync-skills/`, `.codex/skills/in-sync-skills/`, `.cursor/skills/in-sync-skills/` so a freshly cloned developer can invoke this skill no matter which of the three tools they opened the repo in.
+- Step 9 below re-copies the source-of-truth into the three bootstrap locations on every run, so editing `skills/in-sync-skills/SKILL.md` automatically propagates.
 
 ## Steps
 
@@ -37,7 +37,7 @@ Ask a single-select question with these options:
 If **Other**:
 1. Ask the user: *"Which AI tool are you using?"*
 2. Print exactly:
-   > `<tool_name>` is not yet supported by `/sync-skills`. Please tell Dmitry Kuzyuberdin to add support for `<tool_name>`.
+   > `<tool_name>` is not yet supported by `/in-sync-skills`. Please tell Dmitry Kuzyuberdin to add support for `<tool_name>`.
 3. Stop. Do not perform any copies.
 
 Otherwise, map the choice to a tool directory name:
@@ -95,8 +95,8 @@ Print a summary like:
 Tool:    Claude Code
 Target:  ~/.claude/  (skills/ + agents/)
 
-Skills to add (3):       arch-c4-code, arch-er-diagram, sync-skills
-Skills to overwrite (5): add-global-skill, arch-c4-diagrams, arch-dynamic-diagrams, ...
+Skills to add (3):       in-arch-c4-code, in-arch-er-diagram, in-sync-skills
+Skills to overwrite (5): in-add-global-skill, in-arch-c4-diagrams, in-arch-dynamic-diagrams, ...
 Agents to add (0):       (none)
 Agents to overwrite (0): (none)
 ```
@@ -149,10 +149,10 @@ Re-sync the source-of-truth into the three bootstrap locations so future clones 
 
 ```bash
 for boot in .claude .codex .cursor; do
-  mkdir -p "<repo_root>/$boot/skills/sync-skills"
+  mkdir -p "<repo_root>/$boot/skills/in-sync-skills"
   rsync -a --delete \
     --exclude='.*' \
-    "<repo_root>/skills/sync-skills/" "<repo_root>/$boot/skills/sync-skills/"
+    "<repo_root>/skills/in-sync-skills/" "<repo_root>/$boot/skills/in-sync-skills/"
 done
 ```
 
@@ -167,7 +167,7 @@ Bootstrap copies refreshed: .claude/, .codex/, .cursor/.
 ```
 
 If the user declined `git pull` in step 3, append:
-> Note: you skipped `git pull`. The repo may be behind the team's latest. Run `git pull` and re-run `/sync-skills` to update.
+> Note: you skipped `git pull`. The repo may be behind the team's latest. Run `git pull` and re-run `/in-sync-skills` to update.
 
 ## Locked policies
 - **Copy mode**: physical copy (rsync/cp), not symlink — cross-platform safe (Windows-friendly).
@@ -181,7 +181,7 @@ If the user declined `git pull` in step 3, append:
 - **Exclusions**: dotfiles, `.DS_Store`, `Thumbs.db`, `.git`, `.idea`, `.vscode`, `node_modules`.
 
 ## Trigger phrases
-- `/sync-skills`
+- `/in-sync-skills`
 - "sync skills"
 - "sync agents"
 - "install team skills"

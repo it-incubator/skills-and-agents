@@ -1,5 +1,5 @@
 ---
-name: arch-dynamic-diagrams
+name: in-arch-dynamic-diagrams
 description: Generate C4 dynamic diagrams in PlantUML — numbered runtime scenarios at the container level showing what data crosses each boundary. One diagram per use case in docs/use-cases/. Use when user asks for "dynamic diagram", "c4 dynamic", "динамическая диаграмма", "динамические диаграммы c4", "сценарий взаимодействия", or to convert use cases into runtime flows.
 ---
 

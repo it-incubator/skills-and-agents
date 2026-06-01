@@ -1,5 +1,5 @@
 ---
-name: arch-c4-diagrams
+name: in-arch-c4-diagrams
 description: Generate C4 architecture diagrams (levels 1-3 + deployment) in PlantUML format. Use when user asks to create C4 diagrams, architecture diagrams, system design diagrams, or says "c4", "c4 diagrams", "архитектурные диаграммы", "диаграммы c4", "системный дизайн", "deployment diagram".
 ---
 

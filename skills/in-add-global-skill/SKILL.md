@@ -1,5 +1,5 @@
 ---
-name: add-global-skill
+name: in-add-global-skill
 description: Add a new global skill for Claude Code. Use when the user wants to create/add/register a new skill, slash command, or agent capability globally.
 ---
 

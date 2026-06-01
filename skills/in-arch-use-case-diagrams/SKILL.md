@@ -1,5 +1,5 @@
 ---
-name: arch-use-case-diagrams
+name: in-arch-use-case-diagrams
 description: Generate business-level PlantUML sequence diagrams showing user scenarios and system value — no internal architecture, just actors and the system as a black box. Use when user says "use cases", "сценарии", "юзкейсы", "бизнес-сценарии", "пользовательские сценарии".
 ---
 
