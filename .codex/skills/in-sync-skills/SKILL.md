@@ -84,12 +84,34 @@ From `<repo_root>`:
 - List subdirectories of `<repo_root>/skills/` → these are the **skill items** to sync.
 - If `<repo_root>/agents/` exists, list its subdirectories → these are the **agent items** to sync. Otherwise the agents list is empty.
 
-For each item, classify against the destination:
+For each source item, classify against the destination:
 - If `<target>/skills/<item>/` (or `<target>/agents/<item>/`) already exists → **overwrite**.
 - Otherwise → **new**.
 
-### 7. Show summary and confirm
-Print a summary like:
+**Orphan detection (`in-*` only).** All team skills and agents are prefixed `in-`. Anything in `<target_root>/skills/` (and `<target_root>/agents/`) that:
+
+1. starts with `in-`, AND
+2. does NOT exist in the corresponding source list
+
+is an **orphan candidate** — likely renamed or removed from the team repo. Collect these into an orphans list.
+
+Items in the destination that do NOT start with `in-` are personal/external skills — never list them, never offer them for deletion, never touch them.
+
+For each orphan, gather context from the repo's git history to explain *why* it might be gone:
+
+```bash
+# Look for delete/rename events touching this orphan's path in recent history.
+git -C "<repo_root>" log -n 10 --diff-filter=DR --name-status --format='COMMIT %h %s' -- "skills/<orphan>" "agents/<orphan>"
+```
+
+Parse the output to find the most recent event:
+- A line `D skills/<orphan>/...` under `COMMIT <hash> <subject>` → reason: **deleted in `<hash>`: `<subject>`**.
+- A line `R<score> skills/<orphan>/... skills/<new_name>/...` → reason: **renamed to `<new_name>` in `<hash>`: `<subject>`**.
+
+If git returns nothing, reason: **no recent commit history found — may predate this repo or have been installed manually**.
+
+### 7. Show summary, gather orphan decisions, confirm
+Print the summary:
 
 ```
 Tool:    Claude Code
@@ -99,9 +121,27 @@ Skills to add (3):       in-arch-c4-code, in-arch-er-diagram, in-sync-skills
 Skills to overwrite (5): in-add-global-skill, in-arch-c4-diagrams, in-arch-dynamic-diagrams, ...
 Agents to add (0):       (none)
 Agents to overwrite (0): (none)
+
+Orphan in-* items found (2):
+  - in-commit-message   reason: renamed to in-commit in 4f867b4: refactor(skills): rename in-commit-message to in-commit
+  - in-old-thing        reason: deleted in abc1234: chore(skills): drop unused in-old-thing
 ```
 
-Ask: **Proceed?** (yes/no). If no → abort with no changes.
+If there are orphans, ask the user per-orphan whether to delete or keep, repeating the reason in the question:
+
+> Orphan `<name>` — `<reason>`. Delete from `<target_root>`?
+> - Delete it
+> - Keep it
+
+Batch up to 4 orphan questions per `AskUserQuestion` call; loop if more. Collect each decision.
+
+Then ask the **final** confirmation:
+
+> Proceed? (will apply syncs/overwrites + delete the orphans you confirmed)
+
+If no → abort with no changes (no syncs, no deletions).
+
+If there are zero orphans, skip the per-orphan step and just ask the final Proceed?
 
 ### 8. Apply the sync
 Ensure target dirs exist:
@@ -144,6 +184,23 @@ find "<target_root>/skills/<name>" -name '.*' -prune -exec rm -rf {} +
 find "<target_root>/skills/<name>" \( -name 'Thumbs.db' -o -name 'node_modules' \) -prune -exec rm -rf {} +
 ```
 
+**Delete confirmed orphans.** For each orphan the user confirmed for deletion in step 7:
+
+```bash
+target="<target_root>/skills/<orphan>"     # or "<target_root>/agents/<orphan>"
+case "$(basename "$target")" in
+  in-*) ;;                                  # safety: only in-* paths
+  *) echo "REFUSED: $target is not in-*"; continue ;;
+esac
+if [ -L "$target" ]; then
+  rm -f "$target"                           # symlink: remove only the link
+elif [ -d "$target" ]; then
+  rm -rf "$target"                          # real dir: remove fully
+fi
+```
+
+Safety: only paths matching `<target_root>/{skills,agents}/in-*` may be deleted. Never `rm -rf` anything without the `in-` prefix, even if asked.
+
 ### 9. Refresh bootstrap copies inside this repo
 Re-sync the source-of-truth into the three bootstrap locations so future clones / fresh checkouts see the latest version:
 
@@ -163,8 +220,12 @@ Print:
 
 ```
 Synced N skills (X new, Y updated) and M agents (X new, Y updated) to <target_root>.
+Removed D orphan in-* items: <names...>
+Kept K orphan in-* items (user declined): <names...>
 Bootstrap copies refreshed: .claude/, .codex/, .cursor/.
 ```
+
+Omit the "Removed" and/or "Kept" lines when their counts are zero.
 
 If the user declined `git pull` in step 3, append:
 > Note: you skipped `git pull`. The repo may be behind the team's latest. Run `git pull` and re-run `/in-sync-skills` to update.
@@ -174,7 +235,10 @@ If the user declined `git pull` in step 3, append:
 - **Scope**: `skills/` always; `agents/` if present.
 - **Selection**: sync everything, no per-item picker.
 - **Overwrite**: silent overwrite at item level.
-- **Deletion**: additive at the item level — never delete sibling skills/agents in the destination.
+- **Deletion**:
+  - Inside each synced item: `rsync --delete` removes stale files inside that item folder so renames inside a skill clean up properly.
+  - At the item level: `in-*` orphans (present in destination but absent from source) are deletion candidates. Each requires explicit per-item confirmation with a git-history reason (deleted/renamed commit, or "no history found").
+  - Items in the destination that do NOT start with `in-` are NEVER listed, offered, or removed — they are personal/external skills.
 - **Path validation**: must be absolute, must exist as a directory.
 - **Pre-sync UX**: dry-run summary + explicit confirm.
 - **Auto pull**: ask, default Yes; never force or reset.
