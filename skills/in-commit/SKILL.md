@@ -1,5 +1,5 @@
 ---
-name: in-commit-message
+name: in-commit
 description: Generate a conventional commit message with title and detailed description. Use when user says "commit message", "создай комит месседж", "напиши сообщение для коммита", "create commit message", or "сгенерируй комит".
 ---
 
