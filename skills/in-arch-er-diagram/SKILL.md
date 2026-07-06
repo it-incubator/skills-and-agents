@@ -220,6 +220,16 @@ parent ||--o{ child : "has many"
 - Otherwise, place in `docs/` or project root
 - Name the file `er-diagram.puml`
 
+## Validate Syntax by Rendering
+
+After writing the `.puml` file, render it to PNG to confirm the PlantUML syntax is valid — a file that fails to render is broken no matter how correct the source looks.
+
+1. Render the generated `.puml` to PNG, e.g. `plantuml -tpng docs/architecture/er-diagram.puml` (adjust the path to wherever the file was placed). If PlantUML is not installed locally, fall back to any available renderer (Docker image `plantuml/plantuml`, the PlantUML server, etc.).
+2. If the render fails, read the error, fix the `.puml` source, and re-render until it succeeds.
+3. **Delete the generated PNG file once rendering succeeds** — it is only a syntax check, not an artifact of this skill. Leave only the `.puml` source.
+
+Never leave `.png` files behind.
+
 ## Quality Checklist
 
 Before finishing, verify:
@@ -233,3 +243,4 @@ Before finishing, verify:
 - [ ] Notes explain business logic, not just field types
 - [ ] Enum values are documented in notes
 - [ ] The diagram renders correctly as standalone PlantUML
+- [ ] The `.puml` was rendered to PNG to verify syntax, and the PNG was deleted afterward

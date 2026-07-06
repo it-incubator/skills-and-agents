@@ -191,6 +191,16 @@ end note
 - Keep message labels concise and human-readable
 - Diagram should read as a **user story** from top to bottom
 
+## Validate Syntax by Rendering
+
+After writing the `.puml` files, render each one to PNG to confirm the PlantUML syntax is valid — a file that fails to render is broken no matter how correct the source looks.
+
+1. Render every generated `.puml` to PNG, e.g. `plantuml -tpng docs/use-cases/**/*.puml` (or per-file `plantuml -tpng <file>.puml`). If PlantUML is not installed locally, fall back to any available renderer (Docker image `plantuml/plantuml`, the PlantUML server, etc.).
+2. If a render fails, read the error, fix the `.puml` source, and re-render until every file succeeds.
+3. **Delete the generated PNG files once rendering succeeds** — they are only a syntax check, not an artifact of this skill. Leave only the `.puml` sources.
+
+Never leave `.png` files behind.
+
 ## Quality Checklist
 
 Before finishing, verify:
@@ -203,4 +213,5 @@ Before finishing, verify:
 - [ ] A non-technical person can understand each diagram
 - [ ] Business rules and limits are in notes, not in message labels
 - [ ] Each diagram renders independently
+- [ ] Every `.puml` was rendered to PNG to verify syntax, and the PNGs were deleted afterward
 - [ ] Activation/deactivation is balanced

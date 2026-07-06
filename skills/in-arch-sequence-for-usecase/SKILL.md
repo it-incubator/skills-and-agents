@@ -214,6 +214,16 @@ Report:
 - Aliases meaningful (`ctrl`, `uc`, `repo`) — never `a`, `b`, `c`.
 - Same language as the source spec (typically Russian here) for titles, dividers, and notes; method names stay in code (English).
 
+## Validate Syntax by Rendering
+
+After writing the `.sequence.puml` file, render it to PNG to confirm the PlantUML syntax is valid — a file that fails to render is broken no matter how correct the source looks.
+
+1. Render the generated `.puml` to PNG, e.g. `plantuml -tpng <path>/<name>.sequence.puml`. If PlantUML is not installed locally, fall back to any available renderer (Docker image `plantuml/plantuml`, the PlantUML server, etc.).
+2. If the render fails, read the error, fix the `.puml` source, and re-render until it succeeds.
+3. **Delete the generated PNG file once rendering succeeds** — it is only a syntax check, not an artifact of this skill. Since the diagram lives next to the source code, be especially careful not to leave a stray `.png` in the source tree.
+
+Never leave `.png` files behind.
+
 ## Quality Checklist
 
 Before finishing, verify:
@@ -228,3 +238,4 @@ Before finishing, verify:
 - [ ] Notes carry architectural rationale, not duplicate message labels.
 - [ ] No DB / external system appears unless the scenario actually touches it.
 - [ ] Diagram renders independently.
+- [ ] The `.puml` was rendered to PNG to verify syntax, and the PNG was deleted afterward.

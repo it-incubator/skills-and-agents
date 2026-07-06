@@ -1,22 +1,30 @@
 ---
 name: in-arch-dynamic-diagrams
-description: Generate C4 dynamic diagrams in PlantUML — numbered runtime scenarios at the container level showing what data crosses each boundary. One diagram per use case in docs/use-cases/. Use when user asks for "dynamic diagram", "c4 dynamic", "динамическая диаграмма", "динамические диаграммы c4", "сценарий взаимодействия", or to convert use cases into runtime flows.
+description: Generate C4 dynamic diagrams in PlantUML — numbered runtime scenarios at the container level showing what data crosses each boundary. Each use case is drawn in two styles — a C4 communication (collaboration) diagram and a sequence diagram. Use when user asks for "dynamic diagram", "c4 dynamic", "динамическая диаграмма", "динамические диаграммы c4", "сценарий взаимодействия", or to convert use cases into runtime flows.
 ---
 
 # C4 Dynamic Diagrams Generator
 
-Generate C4 **dynamic** diagrams: numbered, container-level runtime flows for specific scenarios. One diagram per use case.
+Generate C4 **dynamic** diagrams: numbered, container-level runtime flows for specific scenarios.
+
+**Two diagrams per use case — the same flow drawn in two visual styles:**
+1. **Communication diagram** — the C4 dynamic (a.k.a. UML *communication* / *collaboration*) style: free-positioned boxes with numbered relationships. Best for seeing topology — who talks to whom.
+2. **Sequence diagram** — participants with lifelines, messages top-to-bottom in time order. Best for seeing chronology and request/response pairing.
+
+Both diagrams describe the **identical** numbered flow (same steps, same numbers, same data on each arrow) — only the visual representation differs. Generate both for every scenario.
 
 This skill is distinct from:
 - `c4-diagrams` — static structure (Levels 1–3 + Deployment)
-- `sequence-diagrams` — component-level technical sequence
+- `in-arch-sequence-for-usecase` — component/layer-level technical sequence inside one container, generated from code
 - `use-case-diagrams` — business-level black-box scenarios
+
+The sequence diagram produced here stays at the **container level** (same participants as the communication one) — it is NOT the code-level sequence from `in-arch-sequence-for-usecase`.
 
 A dynamic diagram answers "what happens at runtime in scenario X, step by step, between which containers, with what data."
 
 ## Step 1 — Find Use Cases
 
-Look in `docs/use-cases/**/uc-*.puml`. Each use case file → one dynamic diagram.
+Look in `docs/use-cases/**/uc-*.puml`. Each use case file → one pair of dynamic diagrams (communication + sequence).
 
 If no use cases exist, ask the user to:
 1. provide scenarios in plain text, OR
@@ -26,26 +34,36 @@ Also read `docs/architecture/c4-2-container.puml` to know which containers to dr
 
 ## Step 2 — File Layout
 
+Each use case yields **two** files — one per style — that share a base name and differ only by the `.communication` / `.sequence` suffix:
+
 ```
 docs/architecture/
 └── dynamic/
-    ├── c4-dynamic-<scenario-1>.puml
-    ├── c4-dynamic-<scenario-2>.puml
+    ├── c4-dynamic-<scenario-1>.communication.puml
+    ├── c4-dynamic-<scenario-1>.sequence.puml
+    ├── c4-dynamic-<scenario-2>.communication.puml
+    ├── c4-dynamic-<scenario-2>.sequence.puml
     └── ...
 ```
 
-**Naming convention:** mirror the use case file name.
-`docs/use-cases/client/uc-new-conversation.puml` → `docs/architecture/dynamic/c4-dynamic-new-conversation.puml`.
+**Naming convention:** mirror the use case file name, then add the style suffix.
+`docs/use-cases/client/uc-new-conversation.puml` →
+- `docs/architecture/dynamic/c4-dynamic-new-conversation.communication.puml`
+- `docs/architecture/dynamic/c4-dynamic-new-conversation.sequence.puml`
 
 The actor folder (`client/`, `manager/`, `system/`) is NOT preserved in the dynamic folder — all dynamic diagrams sit flat under `dynamic/`.
 
-## Step 3 — Diagram Template
+## Step 3 — Diagram Templates
+
+Build the numbered flow **once** (Step 3 of the Workflow), then render it in both templates below. The participants, the step numbers, and the data on each arrow must be identical between the two files — only the syntax/layout differs.
+
+### Style A — Communication diagram (C4 Dynamic)
 
 ```plantuml
 @startuml C4_Dynamic_<PascalCaseScenario>
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Dynamic.puml
 
-title Dynamic Diagram — <Scenario title> (Container Level)
+title Dynamic Diagram (Communication) — <Scenario title> (Container Level)
 
 ' Actors involved in this scenario
 Person(...)
@@ -66,9 +84,40 @@ Rel(...)
 
 Use a unique `@startuml` name per file (e.g. `@startuml C4_Dynamic_NewConversation`).
 
+### Style B — Sequence diagram
+
+Same participants, same numbered steps, plain PlantUML sequence syntax. Map each C4 element to a sequence participant: `Person` → `actor`, `ContainerDb` → `database`, everything else → `participant`. Keep the **same explicit step numbers** in the message labels so the two diagrams line up 1:1.
+
+```plantuml
+@startuml Seq_Dynamic_<PascalCaseScenario>
+title Dynamic Diagram (Sequence) — <Scenario title> (Container Level)
+
+actor "<Actor>" as actor
+participant "<Container>" as a
+participant "<Container>" as b
+database "<Database>" as db
+participant "<External System>" as ext
+
+actor -> a : 1. ...
+a -> b : 2. ...
+b --> a : 3. resp: ...
+a -> db : 4. SELECT ... FROM ... WHERE ...
+db --> a : 5. resp: rows[]
+
+@enduml
+```
+
+**Sequence-specific conventions:**
+- Solid arrow `->` for a request/forward step, dashed `-->` for the response step (mirrors the "resp:" arrows of the communication diagram).
+- A self-action (debounce timer, polling tick) becomes a self-message `a -> a : N. ...`.
+- Use `alt` / `opt` / `loop` / `par` blocks if the scenario branches or repeats — the same branching the communication diagram implies via its numbering.
+- Do NOT use PlantUML `autonumber` — carry the explicit numbers from the shared flow so both styles use matching step numbers.
+
 ---
 
 ## Conventions for Data Flow
+
+These conventions define the **shared flow** that both the communication and the sequence diagram render — decide arrows, numbering, and labels once, then reuse them verbatim in both files. Examples below use `Rel()` (communication syntax); in the sequence diagram the same interaction becomes a `->` (and `-->` for a "resp:" arrow) with the same number and label.
 
 The whole point of a dynamic diagram is showing **what data crosses each boundary** — not just who calls whom. Labels must carry payload information for runtime interactions.
 
@@ -158,27 +207,42 @@ After generating dynamic diagrams, report any gaps to the user and offer to upda
 3. For each use case:
    - Identify which containers and externals participate
    - Translate the abstract "Система" of the use case into specific containers
-   - Build a numbered Rel sequence following the data-flow conventions above
-   - Write to `docs/architecture/dynamic/c4-dynamic-<scenario>.puml`
+   - Build ONE numbered flow following the data-flow conventions above
+   - Render it as **both** styles from that single flow:
+     - `docs/architecture/dynamic/c4-dynamic-<scenario>.communication.puml` (Style A)
+     - `docs/architecture/dynamic/c4-dynamic-<scenario>.sequence.puml` (Style B)
+   - Verify the two files carry identical participants, step numbers, and labels
 4. Report:
-   - Generated files
+   - Generated files (both per scenario)
    - Any gaps between dynamic flows and `c4-2-container.puml`
 
 If there are many use cases (≥10), batch the file writes in parallel rather than serially.
 
+## Validate Syntax by Rendering
+
+After writing the `.puml` files, render **each** one — both the `.communication.puml` and the `.sequence.puml` of every scenario — to PNG to confirm the PlantUML syntax is valid; a file that fails to render is broken no matter how correct the source looks. The communication files pull in a remote `C4_Dynamic.puml` `!include`, so a render is the only real syntax check.
+
+1. Render every generated `.puml` to PNG, e.g. `plantuml -tpng docs/architecture/dynamic/*.puml` (or per-file `plantuml -tpng <file>.puml`). If PlantUML is not installed locally, fall back to any available renderer (Docker image `plantuml/plantuml`, the PlantUML server, etc.).
+2. If a render fails, read the error, fix the `.puml` source, and re-render until every file succeeds.
+3. **Delete the generated PNG files once rendering succeeds** — they are only a syntax check, not an artifact of this skill. Leave only the `.puml` sources.
+
+Never leave `.png` files behind.
+
 ## Quality Checklist
 
-- [ ] One file per use case in `docs/use-cases/`
-- [ ] File name mirrors use case (`uc-X.puml` → `c4-dynamic-X.puml`), all flat under `dynamic/`
+- [ ] TWO files per use case — a `.communication.puml` and a `.sequence.puml` — all flat under `dynamic/`
+- [ ] File names mirror the use case + style suffix (`uc-X.puml` → `c4-dynamic-X.communication.puml` and `c4-dynamic-X.sequence.puml`)
+- [ ] The two styles of each scenario carry identical participants, step numbers, and labels
 - [ ] Every step numbered sequentially starting at 1
 - [ ] Synchronous calls with non-trivial responses use two arrows (req + resp)
 - [ ] Fire-and-forget calls use a single arrow
 - [ ] UI clicks have action labels but NO payload
 - [ ] DB / HTTP labels show key field names, not full schemas
 - [ ] All containers / external systems referenced exist in `c4-2-container.puml`
-- [ ] Title format: `Dynamic Diagram — <scenario name> (Container Level)`
-- [ ] Each `@startuml` has a unique name
+- [ ] Title format: `Dynamic Diagram (Communication|Sequence) — <scenario name> (Container Level)`
+- [ ] Each `@startuml` has a unique name (communication `C4_Dynamic_*`, sequence `Seq_Dynamic_*`)
 - [ ] Files render independently
+- [ ] Every `.puml` was rendered to PNG to verify syntax, and the PNGs were deleted afterward
 
 ## What's Next
 

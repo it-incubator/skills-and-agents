@@ -244,6 +244,16 @@ Do not generate dynamic / scenario diagrams here. Use the `dynamic-diagrams` ski
 - Otherwise, create it
 - Each controlled container gets its own subfolder under `docs/architecture/`
 
+## Validate Syntax by Rendering
+
+After writing the `.puml` files, render each one to PNG to confirm the PlantUML syntax is valid — a file that fails to render is broken no matter how correct the source looks. C4 files pull in remote `!include`s, so a render is the only real syntax check.
+
+1. Render every generated `.puml` to PNG, e.g. `plantuml -tpng docs/architecture/**/*.puml` (or per-file `plantuml -tpng <file>.puml`). If PlantUML is not installed locally, fall back to any available renderer (Docker image `plantuml/plantuml`, the PlantUML server, etc.).
+2. If a render fails, read the error, fix the `.puml` source, and re-render until every file succeeds.
+3. **Delete the generated PNG files once rendering succeeds** — they are only a syntax check, not an artifact of this skill. Leave only the `.puml` sources.
+
+Never leave `.png` files behind.
+
 ## Quality Checklist
 
 Before finishing, verify:
@@ -255,6 +265,7 @@ Before finishing, verify:
 - [ ] Deployment (if generated): containers placed inside the platforms that host them
 - [ ] No managed/external services have component diagrams
 - [ ] All files render independently
+- [ ] Every `.puml` was rendered to PNG to verify syntax, and the PNGs were deleted afterward
 - [ ] Relationships are consistent across all levels
 
 ## What's Next
