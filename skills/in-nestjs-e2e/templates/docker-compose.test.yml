@@ -1,0 +1,38 @@
+# Isolated E2E test database for {{APP_NAME}}.
+#
+# Separate container/volume so `DROP SCHEMA` in tests can never touch dev data.
+# Host port = dev DB port + 1 (see references/detect.md).
+#
+# Up:   docker compose -f {{APP_PATH}}/docker-compose.test.yml up -d
+# Down: docker compose -f {{APP_PATH}}/docker-compose.test.yml down
+#
+# Add Redis/Kafka test services ONLY if you write realtime/broker e2e specs.
+
+name: {{APP_NAME}}-test
+
+services:
+  # ---- Postgres (e2e) ----
+  postgres-test:
+    image: postgres:17
+    container_name: {{APP_NAME}}-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: {{DB_NAME}}_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '{{TEST_DB_PORT}}:5432'
+    # No named volume on purpose: the schema is DROP/CREATE'd each run anyway,
+    # and an ephemeral test DB avoids stale state. Add a volume only if you
+    # want faster warm starts.
+
+# ─────────────────────────────────────────────────────────────────────────
+# Mongo variant — use instead of postgres-test if {{DB}} = mongo:
+#
+#   mongo-test:
+#     image: mongo:7
+#     container_name: {{APP_NAME}}-mongo-test
+#     restart: unless-stopped
+#     ports:
+#       - '{{TEST_DB_PORT}}:27017'
+# ─────────────────────────────────────────────────────────────────────────
