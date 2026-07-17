@@ -254,6 +254,20 @@ After writing the `.puml` files, render each one to PNG to confirm the PlantUML 
 
 Never leave `.png` files behind.
 
+## Register in the docs index (if the project uses one)
+
+The `.puml` files this skill produces are architecture documentation. If the project has adopted the docs-index convention (`docs/INDEX.md` — see the `in-docs-audit` / `in-docs-write` skills), the generated diagrams must be registered as first-class indexed docs; otherwise an agent routing through `docs/INDEX.md` never sees them.
+
+1. Find the repo root (`git rev-parse --show-toplevel`) and check whether **`docs/INDEX.md` exists**.
+2. **If it does not exist** — the project does not use the convention. Do nothing extra: leave the `.puml` sources exactly as generated, ignoring the in-docs rules. Do **not** bootstrap an index. Done.
+3. **If it exists** — for every `.puml` you generated, apply the `in-docs-write` contract:
+   - Insert a metadata header as a `'` comment block immediately after `@startuml`, with every field: `type: diagram`, `subtype: <SUBTYPE>`, `status`, `system`, `entities`, `answers` (2–5 concrete questions the diagram answers), `related`, `source_files`, `last_reviewed` (today). Values in the project's documentation language; field names stay English.
+   - Add or update the diagram's entry under `### Diagram` in `docs/INDEX.md`, derived from that header (carry `subtype`). If the diagram's `system` is new, add it to `## Domains`.
+   - Index the file **in place** — never move a diagram just to register it.
+4. Verify before finishing: every generated `.puml` has a complete header **and** a matching `docs/INDEX.md` entry.
+
+Subtype per file: `c4-context` (level 1), `c4-container` (level 2), `c4-component` (level 3), `c4-deployment` (deployment).
+
 ## Quality Checklist
 
 Before finishing, verify:

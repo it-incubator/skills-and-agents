@@ -224,6 +224,20 @@ After writing the `.sequence.puml` file, render it to PNG to confirm the PlantUM
 
 Never leave `.png` files behind.
 
+## Register in the docs index (if the project uses one)
+
+The `.sequence.puml` this skill produces is architecture documentation. If the project has adopted the docs-index convention (`docs/INDEX.md` — see the `in-docs-audit` / `in-docs-write` skills), the generated diagram must be registered as a first-class indexed doc; otherwise an agent routing through `docs/INDEX.md` never sees it.
+
+1. Find the repo root (`git rev-parse --show-toplevel`) and check whether **`docs/INDEX.md` exists**.
+2. **If it does not exist** — the project does not use the convention. Do nothing extra: leave the `.sequence.puml` exactly as generated, ignoring the in-docs rules. Do **not** bootstrap an index. Done.
+3. **If it exists** — apply the `in-docs-write` contract to the generated `.sequence.puml`:
+   - Insert a metadata header as a `'` comment block immediately after `@startuml`, with every field: `type: diagram`, `subtype: <SUBTYPE>`, `status`, `system`, `entities`, `answers` (2–5 concrete questions the diagram answers), `related`, `source_files` (the use case source file this diagram traces), `last_reviewed` (today). Values in the project's documentation language; field names stay English.
+   - Add or update the diagram's entry under `### Diagram` in `docs/INDEX.md`, derived from that header (carry `subtype`). If the diagram's `system` is new, add it to `## Domains`.
+   - **Index it in place** — the `.sequence.puml` stays next to the use case source code (this skill never puts it under `docs/`); registering it must not move it.
+4. Verify before finishing: the generated `.sequence.puml` has a complete header **and** a matching `docs/INDEX.md` entry.
+
+Subtype for this skill: `sequence`.
+
 ## Quality Checklist
 
 Before finishing, verify:
