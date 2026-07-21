@@ -13,9 +13,18 @@ Copy the team's shared `skills/` and `agents/` directories from the skills-and-a
 Supported tools: **Claude Code**, **Codex**, **Cursor**. Anything else is rejected with a message asking the user to contact Dmitry Kuzyuberdin.
 
 ## Architecture
-- Source of truth lives at `skills/in-sync-skills/SKILL.md` inside the skills-and-agents repo.
-- Bootstrap copies live at `.claude/skills/in-sync-skills/`, `.codex/skills/in-sync-skills/`, `.cursor/skills/in-sync-skills/` so a freshly cloned developer can invoke this skill no matter which of the three tools they opened the repo in.
-- Step 9 below re-copies the source-of-truth into the three bootstrap locations on every run, so editing `skills/in-sync-skills/SKILL.md` automatically propagates.
+- **This skill is special: it has no `skills/` source-of-truth copy.** Unlike every other team skill, `in-sync-skills` only works when invoked from inside the skills-and-agents repo (see step 1), so a global copy would be dead weight. It therefore lives *only* in the three bootstrap locations and is deliberately kept out of `skills/`.
+- Because it is not under `skills/`, step 6 never lists it, so it is never synced into a developer's global or project config — exactly what we want.
+- Canonical copies live at `.claude/skills/in-sync-skills/`, `.codex/skills/in-sync-skills/`, `.cursor/skills/in-sync-skills/` so a freshly cloned developer can invoke this skill no matter which of the three tools they opened the repo in.
+- **Editing convention:** treat `.claude/skills/in-sync-skills/SKILL.md` as the one you edit. Step 9 below mirrors it into the `.codex` and `.cursor` copies on every run, so all three stay in sync. Commit all three.
+
+## Question policy (read first)
+**Ask everything you can up front, in a single batched `AskUserQuestion` call, then run to completion without stopping again.** The developer should be able to answer once and walk away.
+
+- Step 2 collects **all** setup answers at once: which tool(s), git pull yes/no, global vs project. Tool selection is **multi-select** (checkboxes) — the developer can sync to Claude Code, Codex, and Cursor in the same run.
+- The project path (step 3) is the only setup follow-up, and only when "Project" was chosen — it needs free-form text so it can't live in the batched multiple-choice call.
+- The **only** unavoidable later interaction is orphan deletion (step 7): an orphan can't be detected until the sync plan is built against the resolved target, which requires the setup answers first. Batch all orphan decisions together and ask them once.
+- Never fall back into the old ask-one-thing-then-work-then-ask-again rhythm. If you find yourself about to ask a setup question mid-flow, you skipped it in step 2.
 
 ## Steps
 
@@ -26,74 +35,80 @@ Run `git rev-parse --show-toplevel` to find the repo root. Verify that `<repo_ro
 
 Remember `<repo_root>` for the rest of the steps.
 
-### 2. Ask which AI tool the developer uses
-Ask a single-select question with these options:
+### 2. Ask all setup questions at once (one batched call)
+Make a **single** `AskUserQuestion` call containing these three questions — do not split them across turns:
 
-- **Claude Code**
-- **Codex**
-- **Cursor**
-- **Other**
+1. **Which AI tool(s)?** — `multiSelect: true` (checkboxes, pick one or more):
+   - **Claude Code**
+   - **Codex**
+   - **Cursor**
+2. **Run `git pull` first to fetch the latest skills?** — single-select:
+   - **Yes** (Recommended)
+   - **No**
+3. **Global or project?** — single-select:
+   - **Global** — the developer's user-wide config.
+   - **Project** — a specific project folder.
 
-If **Other**:
-1. Ask the user: *"Which AI tool are you using?"*
-2. Print exactly:
-   > `<tool_name>` is not yet supported by `/in-sync-skills`. Please tell Dmitry Kuzyuberdin to add support for `<tool_name>`.
-3. Stop. Do not perform any copies.
+Handling the answers:
 
-Otherwise, map the choice to a tool directory name:
+- **Tools.** Map each selected supported choice to its directory name; the result is a **set** `<tool_dirs>` (may contain more than one):
 
-| Choice      | `<tool_dir>` |
-|-------------|--------------|
-| Claude Code | `.claude`    |
-| Codex       | `.codex`     |
-| Cursor      | `.cursor`    |
+  | Choice      | `<tool_dir>` |
+  |-------------|--------------|
+  | Claude Code | `.claude`    |
+  | Codex       | `.codex`     |
+  | Cursor      | `.cursor`    |
 
-### 3. Offer to `git pull` first
-Ask: *"Run `git pull` first to fetch the latest skills?"* — default **Yes**.
+  If the developer used **Other** to name an unsupported tool, print for that entry:
+  > `<tool_name>` is not yet supported by `/in-sync-skills`. Please tell Dmitry Kuzyuberdin to add support for `<tool_name>`.
 
-- If yes: run `git pull` from `<repo_root>`.
+  Drop the unsupported entry. If at least one supported tool was also selected, continue with those; if **no** supported tool remains, stop without copying.
+
+- **git pull / scope** are remembered for steps 3–4. Do not re-ask them.
+
+### 3. Ask for the project path (only if "Project")
+If the scope answer was **Project**, ask once for the **absolute path** to the project (free-form text — this is the single follow-up that can't be a checkbox). Validate:
+
+- Must start with `/` (absolute). Reject `~`, `./`, relative paths with:
+  > Please provide an absolute path starting with `/`.
+- Path must exist and be a directory (`test -d "<path>"`). Reject otherwise with:
+  > Path does not exist or is not a directory: `<path>`
+
+If the scope answer was **Global**, skip this step. From here on, ask nothing until the orphan decisions in step 7.
+
+### 4. Run `git pull` if requested
+- If the developer chose **Yes** in step 2: run `git pull` from `<repo_root>`.
   - If pull fails (dirty tree, conflicts, divergence), print the error and ask whether to abort or continue with the current checkout. Never force-pull, reset, or stash without explicit user consent.
-- If no: continue with whatever is currently on disk.
+- If **No**: continue with whatever is currently on disk.
 
-### 4. Ask: global or project?
-Single-select:
-
-- **Global** — sync to the developer's user-wide config.
-- **Project** — sync to a specific project folder.
-
-### 5. Resolve the target directory
-Define `<target_root>`:
+### 5. Resolve the target directory for each selected tool
+For **every** `<tool_dir>` in `<tool_dirs>`, resolve a `<target_root>`:
 
 - **Global** → `<target_root> = $HOME/<tool_dir>`
-- **Project**:
-  1. Ask the user for the **absolute path** to the project.
-  2. Validate:
-     - Must start with `/` (absolute). Reject `~`, `./`, relative paths with:
-       > Please provide an absolute path starting with `/`.
-     - Path must exist and be a directory (`test -d "<path>"`). Reject otherwise with:
-       > Path does not exist or is not a directory: `<path>`
-  3. `<target_root> = <path>/<tool_dir>`
+- **Project** → `<target_root> = <path>/<tool_dir>` (using the validated `<path>` from step 3)
 
-Targets used in step 8:
+Targets used per tool in step 8:
 - skills target: `<target_root>/skills/`
 - agents target: `<target_root>/agents/`
 
-### 6. Build the sync plan
-From `<repo_root>`:
+Steps 6–8 below run **once per selected tool**. Build every tool's plan before asking any orphan questions, so all remaining questions can be batched together in step 7.
+
+### 6. Build the sync plan (per selected tool)
+The source lists are the same for every tool. Compute them once from `<repo_root>`:
 
 - List subdirectories of `<repo_root>/skills/` → these are the **skill items** to sync.
 - If `<repo_root>/agents/` exists, list its subdirectories → these are the **agent items** to sync. Otherwise the agents list is empty.
 
-For each source item, classify against the destination:
+Then, **for each selected tool's `<target_root>`**, classify against that destination. For each source item:
 - If `<target>/skills/<item>/` (or `<target>/agents/<item>/`) already exists → **overwrite**.
 - Otherwise → **new**.
 
-**Orphan detection (`in-*` only).** All team skills and agents are prefixed `in-`. Anything in `<target_root>/skills/` (and `<target_root>/agents/`) that:
+**Orphan detection (`in-*` only).** Run this per tool. Anything in that tool's `<target_root>/skills/` (and `<target_root>/agents/`) that:
 
 1. starts with `in-`, AND
 2. does NOT exist in the corresponding source list
 
-is an **orphan candidate** — likely renamed or removed from the team repo. Collect these into an orphans list.
+is an **orphan candidate** — likely renamed or removed from the team repo. Collect these into a per-tool orphans list, tagged with which tool/target they belong to (the same `in-` name may be an orphan in one tool but not another). All team skills and agents are prefixed `in-`.
 
 Items in the destination that do NOT start with `in-` are personal/external skills — never list them, never offer them for deletion, never touch them.
 
@@ -110,40 +125,43 @@ Parse the output to find the most recent event:
 
 If git returns nothing, reason: **no recent commit history found — may predate this repo or have been installed manually**.
 
-### 7. Show summary, gather orphan decisions, confirm
-Print the summary:
+### 7. Show one combined summary, gather all orphan decisions, confirm once
+Print **one** summary covering every selected tool — one block per tool:
 
 ```
-Tool:    Claude Code
-Target:  ~/.claude/  (skills/ + agents/)
+Scope:   Global
 
-Skills to add (3):       in-arch-c4-code, in-arch-er-diagram, in-sync-skills
+── Claude Code → ~/.claude/  (skills/ + agents/) ──
+Skills to add (2):       in-arch-c4-code, in-arch-er-diagram
 Skills to overwrite (5): in-add-global-skill, in-arch-c4-diagrams, in-arch-dynamic-diagrams, ...
 Agents to add (0):       (none)
 Agents to overwrite (0): (none)
+Orphan in-* items (1):
+  - in-old-thing   reason: deleted in abc1234: chore(skills): drop unused in-old-thing
 
-Orphan in-* items found (2):
-  - in-commit-message   reason: renamed to in-commit in 4f867b4: refactor(skills): rename in-commit-message to in-commit
-  - in-old-thing        reason: deleted in abc1234: chore(skills): drop unused in-old-thing
+── Cursor → ~/.cursor/  (skills/) ──
+Skills to add (7):       ...
+Skills to overwrite (0): (none)
+Orphan in-* items (0):   (none)
 ```
 
-If there are orphans, ask the user per-orphan whether to delete or keep, repeating the reason in the question:
+Then, if any orphans exist **across all tools**, gather every orphan decision in as few `AskUserQuestion` calls as possible — up to 4 questions per call, looping only if there are more than 4 total. Each question names the tool so identical `in-` names in different targets stay distinct:
 
-> Orphan `<name>` — `<reason>`. Delete from `<target_root>`?
+> `[Claude Code]` Orphan `<name>` — `<reason>`. Delete from `~/.claude`?
 > - Delete it
 > - Keep it
 
-Batch up to 4 orphan questions per `AskUserQuestion` call; loop if more. Collect each decision.
+Collect each decision against its (tool, item). Items in the destination that do NOT start with `in-` are personal/external skills — never list them, never offer them for deletion, never touch them.
 
-Then ask the **final** confirmation:
+Then ask the **single final** confirmation (one call, applies to all tools):
 
-> Proceed? (will apply syncs/overwrites + delete the orphans you confirmed)
+> Proceed? (will apply syncs/overwrites to all selected tools + delete the orphans you confirmed)
 
-If no → abort with no changes (no syncs, no deletions).
+If no → abort with no changes (no syncs, no deletions) for any tool. If there are zero orphans anywhere, skip straight to this Proceed? question.
 
-If there are zero orphans, skip the per-orphan step and just ask the final Proceed?
+### 8. Apply the sync (loop over every selected tool)
+Run the whole of this step once per selected tool's `<target_root>`, applying that tool's own orphan decisions from step 7.
 
-### 8. Apply the sync
 Ensure target dirs exist:
 
 ```bash
@@ -201,36 +219,42 @@ fi
 
 Safety: only paths matching `<target_root>/{skills,agents}/in-*` may be deleted. Never `rm -rf` anything without the `in-` prefix, even if asked.
 
-### 9. Refresh bootstrap copies inside this repo
-Re-sync the source-of-truth into the three bootstrap locations so future clones / fresh checkouts see the latest version:
+### 9. Mirror this skill into the other bootstrap copies
+`in-sync-skills` lives only in the three bootstrap locations (there is no `skills/` copy). Treat `.claude/skills/in-sync-skills/` as the canonical one you edit, and mirror it into the `.codex` and `.cursor` copies so all three tools see the same version:
 
 ```bash
-for boot in .claude .codex .cursor; do
+for boot in .codex .cursor; do
   mkdir -p "<repo_root>/$boot/skills/in-sync-skills"
   rsync -a --delete \
     --exclude='.*' \
-    "<repo_root>/skills/in-sync-skills/" "<repo_root>/$boot/skills/in-sync-skills/"
+    "<repo_root>/.claude/skills/in-sync-skills/" "<repo_root>/$boot/skills/in-sync-skills/"
 done
 ```
 
-If anything changed in the bootstrap copies, mention it in the final report so the maintainer knows to commit them.
+If anything changed in the `.codex`/`.cursor` copies, mention it in the final report so the maintainer knows to commit them.
 
 ### 10. Report
 Print:
 
+One block per selected tool, then the shared footer:
+
 ```
-Synced N skills (X new, Y updated) and M agents (X new, Y updated) to <target_root>.
-Removed D orphan in-* items: <names...>
-Kept K orphan in-* items (user declined): <names...>
-Bootstrap copies refreshed: .claude/, .codex/, .cursor/.
+Claude Code → ~/.claude/: synced N skills (X new, Y updated) and M agents (X new, Y updated).
+  Removed D orphan in-* items: <names...>
+  Kept K orphan in-* items (user declined): <names...>
+Cursor → ~/.cursor/: synced N skills (X new, Y updated).
+
+Bootstrap copies mirrored from .claude/ into: .codex/, .cursor/.
 ```
 
-Omit the "Removed" and/or "Kept" lines when their counts are zero.
+Omit a tool's "Removed" and/or "Kept" line when its count is zero.
 
-If the user declined `git pull` in step 3, append:
+If the user declined `git pull` in step 2, append:
 > Note: you skipped `git pull`. The repo may be behind the team's latest. Run `git pull` and re-run `/in-sync-skills` to update.
 
 ## Locked policies
+- **Question batching**: all setup answers (tool(s), git pull, global/project) are collected in one `AskUserQuestion` call up front; the project path is the only setup follow-up (Project only); orphan decisions are the only data-dependent questions and are batched together. Never drip-feed setup questions.
+- **Tool selection**: multi-select — one run can sync to any combination of Claude Code, Codex, and Cursor. Steps 5–8 loop per selected tool.
 - **Copy mode**: physical copy (rsync/cp), not symlink — cross-platform safe (Windows-friendly).
 - **Scope**: `skills/` always; `agents/` if present.
 - **Selection**: sync everything, no per-item picker.
