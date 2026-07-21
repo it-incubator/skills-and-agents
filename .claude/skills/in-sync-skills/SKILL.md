@@ -36,18 +36,46 @@ Run `git rev-parse --show-toplevel` to find the repo root. Verify that `<repo_ro
 Remember `<repo_root>` for the rest of the steps.
 
 ### 2. Ask all setup questions at once (one batched call)
-Make a **single** `AskUserQuestion` call containing these three questions — do not split them across turns:
+Make a **single** `AskUserQuestion` call containing these three questions — do not split them across turns, and do not rephrase the first question into a single answer.
 
-1. **Which AI tool(s)?** — `multiSelect: true` (checkboxes, pick one or more):
-   - **Claude Code**
-   - **Codex**
-   - **Cursor**
-2. **Run `git pull` first to fetch the latest skills?** — single-select:
-   - **Yes** (Recommended)
-   - **No**
-3. **Global or project?** — single-select:
-   - **Global** — the developer's user-wide config.
-   - **Project** — a specific project folder.
+The first question **MUST** be multi-select. In the `AskUserQuestion` call, the tool question object **must** carry `"multiSelect": true` — this is what renders checkboxes so the developer can tick more than one tool. Do not drop it, do not paraphrase the question header to singular ("AI tool"), and do not fall back to single-select. If you emit only one question object without `multiSelect: true`, you have done it wrong.
+
+Pass exactly this shape (only the tool question sets `multiSelect`):
+
+```json
+{
+  "questions": [
+    {
+      "header": "AI tools",
+      "question": "Which AI tool(s) are you syncing skills to? Pick one or more.",
+      "multiSelect": true,
+      "options": [
+        { "label": "Claude Code", "description": "Sync into .claude/skills/" },
+        { "label": "Codex",       "description": "Sync into .codex/skills/" },
+        { "label": "Cursor",      "description": "Sync into .cursor/skills/" }
+      ]
+    },
+    {
+      "header": "Git pull",
+      "question": "Run `git pull` first to fetch the latest skills?",
+      "multiSelect": false,
+      "options": [
+        { "label": "Yes (Recommended)", "description": "Fetch latest from the team repo before syncing." },
+        { "label": "No",                "description": "Sync whatever is currently on disk." }
+      ]
+    },
+    {
+      "header": "Scope",
+      "question": "Sync globally or into a specific project?",
+      "multiSelect": false,
+      "options": [
+        { "label": "Global",  "description": "The developer's user-wide config (~/.<tool>/)." },
+        { "label": "Project", "description": "A specific project folder (you'll give the path next)." }
+      ]
+    }
+  ]
+}
+```
 
 Handling the answers:
 
