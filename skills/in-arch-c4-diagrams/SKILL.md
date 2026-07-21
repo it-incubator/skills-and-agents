@@ -97,7 +97,7 @@ System_Boundary(system, "System Name") {
 - A container is a separately deployable/runnable unit
 - Do NOT split a single deployable into multiple containers (Next.js with API Routes = one container)
 - Ask: "Can I deploy this piece independently?" If no — it's a component, not a container
-- Include container technology in the element (e.g., "Next.js", "Supabase Edge Functions")
+- Include container technology in the element (e.g., "Next.js", "Supabase Edge Functions") — see **Technology labels are mandatory** below
 
 ## Level 3 — Component (one file per container)
 
@@ -140,17 +140,17 @@ Container(realtime, "Realtime", "Supabase Realtime")
 
 Container_Boundary(admin, "Web Admin — Next.js SPA") {
     Boundary(auth_mod, "Auth", "Module") {
-        Component(auth_page, "Auth Page", "React", "...")
+        Component(auth_page, "Auth Page", "React Component", "...")
     }
 
     Boundary(clients_mod, "Clients", "Module") {
-        Component(client_list, "Client List", "React", "...")
-        Component(chat_view, "Chat View", "React", "...")
-        Component(notes_panel, "Notes Panel", "React", "...")
+        Component(client_list, "Client List", "React Component", "...")
+        Component(chat_view, "Chat View", "React Component", "...")
+        Component(notes_panel, "Notes Panel", "React Component", "...")
     }
 
     Boundary(kb_mod, "Knowledge Base", "Module") {
-        Component(kb_editor, "KB Editor", "React", "...")
+        Component(kb_editor, "KB Editor", "React Component", "...")
     }
 }
 
@@ -220,6 +220,29 @@ Rel(...)
 
 ---
 
+## Technology labels are mandatory (Container & Component)
+
+Every `Container` / `ContainerDb` and every `Component` **must** carry an explicit implementation technology in its `"Tech"` slot (the 3rd argument). This is not optional and not a "detail we can omit" — in C4 the technology choice grounds the diagram in reality, removes ambiguity, and guarantees the element physically exists in the codebase (it prevents the model–code gap).
+
+- **Containers** — name the runtime, application type, or primary framework: `Java and Spring MVC`, `ASP.NET web application`, `Node.js application`, `Relational Database Schema`, `Next.js`, `Supabase Edge Functions`.
+- **Components** — name the concrete code-level construct: `TypeScript Class`, `JavaScript Module`, `React Component`, `Spring Bean`, `Plain Old Java Object`, `Windows Communication Foundation service`.
+
+### The tech slot must be a technology, never an abstraction
+
+Do **NOT** put an architectural-layer name or an abstract concept where the technology belongs. Forbidden in the `"Tech"` slot: `business logic`, `application`, `adapters`, `domain`, `infrastructure`, `presentation`, `service layer`, and similar layer/role words. Those describe *what a thing is for*, not *what it is built with*.
+
+- ✅ `Component(create_order, "Create Order Use Case", "TypeScript Class", "...")`
+- ❌ `Component(create_order, "Create Order Use Case", "Application / Business Logic", "...")`
+
+### Clean Architecture note (this codebase)
+
+Naming a component after a domain concept is fine — `"Create Order Use Case"`, `"Order Repository"`, `"Auth Guard"` are all valid **names** (2nd argument). The prohibition is only about the **`"Tech"` slot**: even for a `*.use-case.ts` file, the technology is `TypeScript Class`, not `"use case"`, `"application layer"`, or `"domain"`. Keep the layer identity in the name/description; keep a real technology in the tech slot.
+
+### What this rule does NOT touch
+
+- **Level 1 (System Context)** descriptions stay business-level — this mandate applies to Container and Component levels only.
+- **Module boundaries** (`Boundary(..., "Module")`) are structural groupings, not Containers/Components — they have no tech slot and are unaffected. Grouping components by feature area (Auth / Clients / Knowledge Base) remains correct.
+
 ## PlantUML General Rules
 
 - Each .puml file must be self-contained and renderable independently
@@ -273,6 +296,8 @@ Subtype per file: `c4-context` (level 1), `c4-container` (level 2), `c4-componen
 Before finishing, verify:
 - [ ] Level 1: All actors and external systems from spec are present
 - [ ] Level 2: Only separately deployable units are containers
+- [ ] Level 2 & 3: Every Container and Component has an explicit technology in its `"Tech"` slot
+- [ ] Level 2 & 3: No `"Tech"` slot holds a layer/abstraction word (`business logic`, `application`, `adapters`, `domain`, …)
 - [ ] Level 3: One file per controlled container, in `<container-slug>/c4-3-component.puml`
 - [ ] Level 3: Modules used only for genuine feature-area grouping, via `Boundary(..., "Module")`
 - [ ] Level 3: No module is also a top-level container in C2
