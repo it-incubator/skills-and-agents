@@ -14,7 +14,8 @@ Generate C4 **dynamic** diagrams: numbered, container-level runtime flows for sp
 Both diagrams describe the **identical** numbered flow (same steps, same numbers, same data on each arrow) — only the visual representation differs. Generate both for every scenario.
 
 This skill is distinct from:
-- `c4-diagrams` — static structure (Levels 1–3 + Deployment)
+- `c4-diagrams` — static structure (Levels 1–3)
+- `deployment-diagram` — supplementary Deployment view (containers on infrastructure)
 - `in-arch-sequence-for-usecase` — component/layer-level technical sequence inside one container, generated from code
 - `use-case-diagrams` — business-level black-box scenarios
 

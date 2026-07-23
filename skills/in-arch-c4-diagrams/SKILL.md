@@ -1,13 +1,14 @@
 ---
 name: in-arch-c4-diagrams
-description: Generate C4 architecture diagrams (levels 1-3 + deployment) in PlantUML format. Use when user asks to create C4 diagrams, architecture diagrams, system design diagrams, or says "c4", "c4 diagrams", "архитектурные диаграммы", "диаграммы c4", "системный дизайн", "deployment diagram".
+description: Generate C4 architecture diagrams (levels 1-3) in PlantUML format. Use when user asks to create C4 diagrams, architecture diagrams, system design diagrams, or says "c4", "c4 diagrams", "архитектурные диаграммы", "диаграммы c4", "системный дизайн".
 ---
 
-# C4 Architecture Diagrams Generator (Levels 1–3 + Deployment)
+# C4 Architecture Diagrams Generator (Levels 1–3)
 
-Generate C4 diagrams for levels 1 (System Context), 2 (Container), 3 (Component) and the supplementary Deployment view, all in **PlantUML (.puml)** format.
+Generate C4 diagrams for levels 1 (System Context), 2 (Container) and 3 (Component), all in **PlantUML (.puml)** format.
 
 For level 4 (Code diagrams), use the `c4-code` skill after reviewing and approving levels 1–3.
+For the supplementary Deployment view (where containers run on infrastructure), use the `deployment-diagram` skill.
 For dynamic scenarios (numbered flows showing data exchange), use the `dynamic-diagrams` skill.
 
 ## Step 1 — Collect Source Documents
@@ -29,7 +30,6 @@ Based on the documents, identify:
 - Containers (separately deployable units) — only those the team controls
 - Components within each container, and whether they cluster into semantic modules
 - Tech stack details
-- Hosting / deployment targets (only for Deployment view)
 
 ## Step 3 — Generate Diagrams
 
@@ -41,7 +41,6 @@ Based on the documents, identify:
 docs/architecture/
 ├── c4-1-context.puml              Level 1: System Context
 ├── c4-2-container.puml            Level 2: Containers
-├── c4-deployment.puml             Supplementary: Deployment (optional)
 ├── <container-1-slug>/
 │   └── c4-3-component.puml        Level 3: Components for container 1
 ├── <container-2-slug>/
@@ -180,43 +179,9 @@ If something genuinely deploys independently (e.g. micro-frontend via Module Fed
 
 ---
 
-## Deployment View (supplementary)
+## Deployment view is NOT part of this skill
 
-When the user wants to show **where things run**, generate `docs/architecture/c4-deployment.puml`. Deployment is a supplementary C4 view — not a numbered level.
-
-```plantuml
-@startuml C4_Deployment
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
-
-title Deployment Diagram — [System Name]
-
-Person(...)
-System_Ext(...)
-
-Deployment_Node(vercel, "Vercel", "Edge Network / CDN") {
-    Container(webapp, "Web Admin", "Next.js", "...")
-}
-
-Deployment_Node(supabase, "Supabase Cloud", "supabase.com") {
-    Deployment_Node(edge_runtime, "Edge Functions Runtime", "Deno") {
-        Container(edge_functions, "Bot Logic", "...", "...")
-    }
-    ContainerDb(db, "Database", "PostgreSQL", "...")
-    Container(auth, "Auth", "Supabase Auth", "...")
-    ...
-}
-
-Rel(...)
-
-@enduml
-```
-
-**Rules:**
-- Show hosting platforms (Vercel, AWS, Supabase Cloud, GCP) as `Deployment_Node`s
-- Containers from C2 sit inside the deployment nodes that host them
-- External SaaS providers (Telegram, OpenAI) stay as `System_Ext` at top level — we don't deploy there
-- Nested deployment nodes are fine (e.g. Edge Functions Runtime inside Supabase Cloud)
-- Keep relations consistent with C2 — same containers, same connections, just placed on infrastructure
+Do not generate a deployment diagram here. The supplementary Deployment view (mapping containers onto hosting/infrastructure) has its own skill — `deployment-diagram` — which enforces the runtime-only rules (no source repos / CI-CD, external APIs as `System_Ext` not containers, never labelled as a numbered level).
 
 ---
 
@@ -289,7 +254,7 @@ The `.puml` files this skill produces are architecture documentation. If the pro
    - Index the file **in place** — never move a diagram just to register it.
 4. Verify before finishing: every generated `.puml` has a complete header **and** a matching `docs/INDEX.md` entry.
 
-Subtype per file: `c4-context` (level 1), `c4-container` (level 2), `c4-component` (level 3), `c4-deployment` (deployment).
+Subtype per file: `c4-context` (level 1), `c4-container` (level 2), `c4-component` (level 3).
 
 ## Quality Checklist
 
@@ -301,7 +266,6 @@ Before finishing, verify:
 - [ ] Level 3: One file per controlled container, in `<container-slug>/c4-3-component.puml`
 - [ ] Level 3: Modules used only for genuine feature-area grouping, via `Boundary(..., "Module")`
 - [ ] Level 3: No module is also a top-level container in C2
-- [ ] Deployment (if generated): containers placed inside the platforms that host them
 - [ ] No managed/external services have component diagrams
 - [ ] All files render independently
 - [ ] Every `.puml` was rendered to PNG to verify syntax, and the PNGs were deleted afterward
@@ -313,4 +277,5 @@ After the user reviews levels 1–3, suggest:
 
 > Диаграммы уровней 1–3 готовы. Дальше можно:
 > — `/c4-code` — code-диаграммы (уровень 4) по каждому компоненту
+> — `/deployment-diagram` — диаграмма развёртывания (где контейнеры работают на инфраструктуре)
 > — `/dynamic-diagrams` — динамические диаграммы (нумерованные сценарии) по юзкейсам из `docs/use-cases/`
