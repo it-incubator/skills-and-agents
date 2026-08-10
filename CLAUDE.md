@@ -31,7 +31,7 @@ Consequences for this repo:
 - **The `in-` prefix is not decoration.** A team skill installed globally silently shadows any project skill of the same name — the project's version stops existing as far as the model is concerned, while the slash menu still lists both. The prefix keeps team skills out of that collision.
 - **Never claim a bare, likely-used name** (`commit`, `review`, `deploy`, `write-e2e-tests`) for a skill that ships from here.
 - **Agents added under `agents/` must keep plain names** (`designer`, `developer`, `qa`, `tester`) — *not* `in-designer`. Because project agents override personal ones, a project that ships its own `designer` is meant to win, and a prefixed name would break that by making both visible at once.
-- When a project deliberately specializes a skill (e.g. a starter-kit fork's `sk-write-e2e-tests`), the two must have **different names** and each `description` should say when to prefer it. Same-name "overlay" does not work — the project copy is invisible, not merged.
+- When a project deliberately specializes a skill (e.g. a starter-kit fork's own e2e skill), the two must have **different names** — same-name "overlay" does not work, the project copy is invisible rather than merged. The **project-side** skill carries the discriminator in its `description`, and the project's own `CLAUDE.md` states which to prefer. Skills shipped from here stay unaware of their consumers: a general library that lists every downstream convention grows with each new one and pays for it in every session.
 
 ## Skill conventions
 
