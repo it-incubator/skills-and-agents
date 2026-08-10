@@ -14,7 +14,7 @@ Turn an existing, unstructured documentation corpus into an AI-agent-first knowl
 The main consumer of the result is an AI agent, not a human: optimize for routing (discovery → scoping → targeted reading), not for a book-style TOC.
 
 ## Hard boundaries (locked policies)
-The skill runs **fully automatically** — no plan/confirmation phase — but within strict limits:
+The skill runs **fully automatically** — no plan/confirmation phase — but within strict limits. The single exception is step 7: if `CLAUDE.md` turns out to be upstream-managed, the skill asks before adding the import.
 
 - **Allowed**: add frontmatter / metadata comment headers; add or rename headings; move sections within a document; add a `## Summary` section; rebuild `docs/INDEX.md`; add/update the "Documentation" section in `AGENTS.md` and make `CLAUDE.md` reference it (removing a duplicate section the auditor itself previously added).
 - **Forbidden**: rephrasing, shortening, or deleting authored text; merging or splitting documents; moving or renaming files; deleting files. Author content must survive byte-for-byte (except heading text and whitespace around inserted sections).
@@ -149,7 +149,16 @@ The documentation contract is tool-agnostic, so its single source of truth is `A
 
 2. **`CLAUDE.md`** — ensure it references `AGENTS.md` instead of duplicating the rules:
    - If a prior audit added a `## Documentation` section directly to `CLAUDE.md`, remove it (the content now lives in `AGENTS.md`).
-   - Ensure `CLAUDE.md` imports `AGENTS.md` via an `@AGENTS.md` line (Claude Code resolves `@path` as an import). If `CLAUDE.md` already references `AGENTS.md` in any form, leave it.
+   - **First check whether `CLAUDE.md` is managed upstream.** In a fork that pulls from a template repo, `CLAUDE.md` arrives from upstream and a local edit turns into a merge conflict on every sync. Treat it as upstream-managed if **any** of these hold:
+     - `git remote` lists an `upstream` remote;
+     - the repo contains a `_git_sync/` directory;
+     - `CLAUDE.md` itself names `CLAUDE.md` in a list of upstream-synced paths (search it for `upstream`).
+
+     If upstream-managed, **stop and ask** before touching it:
+     > `CLAUDE.md` looks upstream-managed (`<which signal>`). Adding the `@AGENTS.md` import here will conflict on the next sync. Add it anyway, or skip and leave `CLAUDE.md` untouched?
+
+     On "skip": leave the file alone, and say so in the final report — `AGENTS.md` and `docs/INDEX.md` are still written, only Claude Code won't auto-load the contract until someone adds the import upstream.
+   - Otherwise, ensure `CLAUDE.md` imports `AGENTS.md` via an `@AGENTS.md` line (Claude Code resolves `@path` as an import). If `CLAUDE.md` already references `AGENTS.md` in any form, leave it.
    - If `CLAUDE.md` does not exist, create a minimal one whose sole content is that import:
 
      ```md
