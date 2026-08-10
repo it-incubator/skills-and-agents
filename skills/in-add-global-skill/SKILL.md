@@ -1,17 +1,29 @@
 ---
 name: in-add-global-skill
-description: Add a new global skill for Claude Code. Use when the user wants to create/add/register a new skill, slash command, or agent capability globally.
+description: Add a new personal global skill for Claude Code, available in all the developer's projects. Use when the user wants to create/add/register a new skill or slash command globally. Trigger phrases — "добавь скилл", "создай скилл", "add a skill", "create a new skill", "register a global skill", "new slash command".
 ---
 
 # Add Global Skill
 
 ## Purpose
-Create a new global skill so it's available in all projects via Claude Code.
+Create a **personal** global skill so it is available in all of the developer's projects via Claude Code.
+
+This is for skills that belong to one developer. **Team skills do not go here** — they live in this repo under `skills/` and reach the developer's global config through `/in-sync-skills`.
 
 ## Architecture
-Skills are stored in two places with a symlink pattern:
-- **Source of truth**: `/Users/it-kamasutra/.agents/skills/<skill-name>/SKILL.md`
-- **Symlink for Claude Code**: `~/.claude/skills/<skill-name>` → `/Users/it-kamasutra/.agents/skills/<skill-name>`
+A global skill is a plain directory in the developer's home config:
+
+```
+~/.claude/skills/<skill-name>/SKILL.md
+```
+
+Nothing else. No source-of-truth elsewhere, no symlink: a symlink needs Administrator or Developer Mode on Windows, and a second location is one more thing to keep in sync for no benefit. This matches how `/in-sync-skills` distributes team skills — real directories, never links.
+
+## ⚠️ Before choosing a name — two collision rules
+
+1. **A global skill silently overrides a project skill with the same name.** Precedence for skills is enterprise → personal → project, so `~/.claude/skills/deploy/` wins over `<project>/.claude/skills/deploy/` — and the project's version stops appearing in the model's skill list entirely. Pick a name no project you work on is likely to use.
+
+2. **Do not use the `in-` prefix.** It is this team repo's namespace. `/in-sync-skills` overwrites `~/.claude/skills/in-*` from the repo, so a personal skill called `in-something` will be silently clobbered the moment the team adds a skill by that name.
 
 ## Input
 The user provides either:
@@ -21,57 +33,52 @@ The user provides either:
 
 ## Steps
 
-1. **Determine skill name**:
+1. **Determine the skill name**:
    - Derive from user input or `$ARGUMENTS`.
    - Normalize: lowercase, hyphens instead of spaces, no special chars. Max 64 chars.
    - Example: "Archive Branch" → `archive-branch`
+   - Reject a name starting with `in-` (see the collision rules above) and ask for another.
 
-2. **Check if skill already exists**:
-   - Check `/Users/it-kamasutra/.agents/skills/<skill-name>/SKILL.md`
-   - If exists, ask user: overwrite or pick a different name?
-
-3. **Create skill directory**:
+2. **Check whether the skill already exists**:
    ```bash
-   mkdir -p /Users/it-kamasutra/.agents/skills/<skill-name>
+   ls ~/.claude/skills/<skill-name>/SKILL.md
+   ```
+   If it exists, ask the user: overwrite or pick a different name?
+
+3. **Create the skill directory**:
+   ```bash
+   mkdir -p ~/.claude/skills/<skill-name>
    ```
 
-4. **Write SKILL.md**:
-   - Create `/Users/it-kamasutra/.agents/skills/<skill-name>/SKILL.md`
-   - Must include YAML frontmatter with at least `name` and `description`
-   - The `description` field is critical — Claude uses it to decide when to auto-invoke the skill
-   - Include trigger phrases in the description if the user provides them
-   - Format:
-     ```yaml
-     ---
-     name: <skill-name>
-     description: <when to use this skill — be specific>
-     ---
+4. **Write `SKILL.md`** at `~/.claude/skills/<skill-name>/SKILL.md`:
+   - Must include YAML frontmatter with at least `name` and `description`.
+   - `name` must equal the directory name.
+   - The `description` field is critical — Claude uses it to decide when to auto-invoke the skill.
+   - Include trigger phrases in the description if the user provides them.
 
-     <Skill instructions in markdown>
-     ```
+   ```yaml
+   ---
+   name: <skill-name>
+   description: <when to use this skill — be specific>
+   ---
 
-5. **Create symlink**:
-   ```bash
-   ln -s /Users/it-kamasutra/.agents/skills/<skill-name> /Users/it-kamasutra/.claude/skills/<skill-name>
+   <Skill instructions in markdown>
    ```
-   - If symlink already exists (from a previous version), remove it first:
-     ```bash
-     rm -f /Users/it-kamasutra/.claude/skills/<skill-name>
-     ```
 
-6. **Verify**:
-   - Confirm the symlink resolves correctly:
-     ```bash
-     ls -la ~/.claude/skills/<skill-name>
-     cat ~/.claude/skills/<skill-name>/SKILL.md | head -5
-     ```
+5. **Verify**:
+   ```bash
+   ls -la ~/.claude/skills/<skill-name>
+   head -5 ~/.claude/skills/<skill-name>/SKILL.md
+   ```
+   Confirm the directory is a real directory (not a link) and that `name` in the frontmatter matches the directory name.
 
 ## Output
 After completion, report:
 - Skill name
-- File path: `/Users/it-kamasutra/.agents/skills/<skill-name>/SKILL.md`
-- Symlink: `~/.claude/skills/<skill-name>`
-- How to invoke: `/<skill-name>` or describe a trigger phrase
+- File path: `~/.claude/skills/<skill-name>/SKILL.md`
+- How to invoke: `/<skill-name>`, or the trigger phrases that auto-invoke it
+
+New skills are picked up without restarting the session.
 
 ## Guidelines for writing good skills
 - `description` in frontmatter should clearly state WHEN to use the skill (Claude auto-invokes based on this)

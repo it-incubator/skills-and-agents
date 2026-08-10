@@ -1,19 +1,26 @@
 ---
 name: in-delete-global-skill
-description: Delete a global Claude Code skill — both the symlink at ~/.claude/skills/ and the source-of-truth at /Users/it-kamasutra/.agents/skills/. Use when the user wants to remove/uninstall/delete an existing global skill or slash command. Trigger phrases: "delete a skill", "remove a skill", "uninstall skill", "удали скилл", "удали глобальный скилл", "delete global skill".
+description: Delete a global Claude Code skill from the developer's `~/.claude/skills/`. Use when the user wants to remove/uninstall/delete an existing global skill or slash command. Trigger phrases — "delete a skill", "remove a skill", "uninstall skill", "удали скилл", "удали глобальный скилл", "delete global skill".
 ---
 
 # Delete Global Skill
 
 ## Purpose
-Remove an existing global skill from Claude Code — both ends of the symlink pattern set up by `in-add-global-skill`.
+Remove a global skill from the developer's Claude Code config — the mirror of `in-add-global-skill`.
 
-## Architecture (mirror of `in-add-global-skill`)
-Global skills live in two places:
-- **Source of truth**: `/Users/it-kamasutra/.agents/skills/<skill-name>/`
-- **Symlink for Claude Code**: `~/.claude/skills/<skill-name>` → source-of-truth
+## Architecture
+A global skill is a plain directory:
 
-Some skills may exist as a real directory at `~/.claude/skills/<skill-name>/` without a `.agents/` source (legacy / manually-installed). This skill handles both cases.
+```
+~/.claude/skills/<skill-name>/
+```
+
+Older setups may leave a **symlink** there instead, pointing at a source directory elsewhere. This skill handles both, but never deletes a symlink's target automatically — see step 5.
+
+## ⚠️ Team skills come back
+Skills named `in-*` are this team's namespace: they live in the skills-and-agents repo and are re-installed by `/in-sync-skills`. Deleting one here removes it only until the next sync.
+
+If a team skill should go away for good, it has to be removed from the repo — then `/in-sync-skills` detects it as an orphan and offers to delete it. Warn the user before deleting any `in-*` skill, and mention that `in-sync-skills` itself must never live in a global config at all.
 
 ## Steps
 
@@ -22,7 +29,7 @@ Some skills may exist as a real directory at `~/.claude/skills/<skill-name>/` wi
 ls -1 ~/.claude/skills/ 2>/dev/null
 ```
 
-This is the canonical list of what's currently invokable in Claude Code. Note alongside it (for the confirmation step) which of these are symlinks vs real dirs:
+Note which entries are symlinks rather than real directories — this matters at the confirmation step:
 
 ```bash
 for s in ~/.claude/skills/*; do
@@ -41,78 +48,59 @@ If the list is empty, abort with:
 ### 2. Ask the user which skill to delete
 Present the list as a single-select question. Argument shortcut: if `$ARGUMENTS` already names a skill that exists in the list, skip the question and use that.
 
-If the user types a name that isn't in the list, abort with:
+If the user names something that isn't in the list, abort with:
 > Skill `<name>` was not found in `~/.claude/skills/`. Available: `<list>`.
 
-### 3. Resolve target paths
-- `link_path = ~/.claude/skills/<skill-name>`
-- `source_path = /Users/it-kamasutra/.agents/skills/<skill-name>`
-
-Check what exists:
-- `link_path` may be a **symlink** (`-L`), a **real directory** (`-d` and not `-L`), or absent.
-- `source_path` may be a directory or absent.
+### 3. Resolve the target
+- `target = ~/.claude/skills/<skill-name>`
+- It is either a **symlink** (`-L`), a **real directory** (`-d` and not `-L`), or absent.
+- If it is a symlink, record `readlink "$target"` — you will report that path, not delete it.
 
 ### 4. Show what will be deleted and confirm
-Print a summary like:
-
 ```
 About to delete skill: <skill-name>
 
-  Symlink/dir: ~/.claude/skills/<skill-name>   [symlink → /Users/it-kamasutra/.agents/skills/<skill-name>]
-  Source dir:  /Users/it-kamasutra/.agents/skills/<skill-name>   [exists, N files]
+  Path: ~/.claude/skills/<skill-name>   [real dir, N files]
+        (or: [symlink → <target>] — the link is removed, the target is left alone)
 
 This is irreversible. Proceed?
 ```
 
-If the source dir doesn't exist, say `(none)` for that line.
+If the skill is named `in-*`, add:
+> This is a team skill. `/in-sync-skills` will re-install it on the next run.
 
 Ask **Proceed?** (yes/no). Default: **No**. Abort on no.
 
 ### 5. Delete
-Order matters: remove the symlink/link first so Claude Code stops seeing the skill, then remove the source.
-
 ```bash
-# Symlink: rm -f removes only the link, not the target. Safe.
-# Real dir: needs rm -rf.
-if [ -L "<link_path>" ]; then
-  rm -f "<link_path>"
-elif [ -d "<link_path>" ]; then
-  rm -rf "<link_path>"
-fi
-
-# Then remove the source-of-truth, if it exists.
-if [ -d "<source_path>" ]; then
-  rm -rf "<source_path>"
+if [ -L "<target>" ]; then
+  rm -f "<target>"          # removes only the link, never the target
+elif [ -d "<target>" ]; then
+  rm -rf "<target>"
 fi
 ```
 
-Do **not** use `rm -rf` on a symlink target by mistake — always test `-L` first.
+**Never `rm -rf` a symlink** — always test `-L` first, and never follow a link to delete whatever it points at. If the user wants the old source directory gone too, print its path and let them remove it themselves; it lives outside `~/.claude/skills/` and is not this skill's to delete.
 
 ### 6. Verify
 ```bash
 ls ~/.claude/skills/<skill-name> 2>&1 | head -1
-ls /Users/it-kamasutra/.agents/skills/<skill-name> 2>&1 | head -1
 ```
-
-Both should report "No such file or directory".
+Should report "No such file or directory".
 
 ### 7. Report
-Print:
-
 ```
 Deleted skill: <skill-name>
   Removed: ~/.claude/skills/<skill-name>
-  Removed: /Users/it-kamasutra/.agents/skills/<skill-name>   (or "not present")
+  Symlink target left in place: <path>   (only if it was a symlink)
 ```
 
-If a restart of Claude Code is needed for the change to take effect, mention it once.
-
 ## Safety rules
-- **Always confirm** before deleting. This skill is irreversible — no `.bak`, no undo.
-- **Never delete more than one skill per invocation.** If the user wants to delete multiple, re-run the skill.
-- **Never delete the parent dirs** `~/.claude/skills/` or `/Users/it-kamasutra/.agents/skills/` — only the named child.
-- **Never follow a symlink with `rm -rf`** — test `-L` first and use `rm -f` on links.
-- If the chosen skill is `in-delete-global-skill` itself, warn explicitly: "You are about to delete the delete-skill skill. You won't be able to re-run /in-delete-global-skill after this. Proceed?"
+- **Always confirm** before deleting. This is irreversible — no `.bak`, no undo.
+- **Never delete more than one skill per invocation.** To delete several, re-run the skill.
+- **Never delete the parent dir** `~/.claude/skills/` — only the named child.
+- **Never follow a symlink with `rm -rf`** — test `-L` first, use `rm -f` on links.
+- If the chosen skill is `in-delete-global-skill` itself, warn explicitly: "You are about to delete the delete-skill skill. You won't be able to re-run `/in-delete-global-skill` after this. Proceed?"
 
 ## Trigger phrases
 - `/in-delete-global-skill`
