@@ -69,8 +69,8 @@ Pass exactly this shape (only the tool question sets `multiSelect`):
       "question": "Sync globally or into a specific project?",
       "multiSelect": false,
       "options": [
-        { "label": "Global",  "description": "The developer's user-wide config (~/.<tool>/)." },
-        { "label": "Project", "description": "A specific project folder (you'll give the path next)." }
+        { "label": "Global (Recommended)", "description": "The developer's user-wide config (~/.<tool>/). Works in every project. This is the normal choice." },
+        { "label": "Project", "description": "Commit the skills into one repo (<project>/.<tool>/). Only when developers must NOT install anything globally. If the same skill is also installed globally, the global copy wins and this one is never used." }
       ]
     }
   ]
@@ -103,6 +103,18 @@ If the scope answer was **Project**, ask once for the **absolute path** to the p
   > Path does not exist or is not a directory: `<path>`
 
 If the scope answer was **Global**, skip this step. From here on, ask nothing until the orphan decisions in step 7.
+
+**Warn once when Project was chosen** (a statement, not a question — do not stop for an answer):
+
+> Note: skills resolve personal-over-project. If a developer already has these `in-*` skills in `~/.<tool>/skills/`, the global copy wins and the ones being written here will never reach the model. Project scope is for repos whose developers install nothing globally.
+
+Also check whether the target already has the skills globally, so the warning is concrete rather than hypothetical:
+
+```bash
+ls -1 "$HOME/<tool_dir>/skills/" 2>/dev/null | grep '^in-' | head
+```
+
+If that list is non-empty, name the overlapping items in the warning.
 
 ### 4. Run `git pull` if requested
 - If the developer chose **Yes** in step 2: run `git pull` from `<repo_root>`.
@@ -284,7 +296,7 @@ If the user declined `git pull` in step 2, append:
 - **Question batching**: all setup answers (tool(s), git pull, global/project) are collected in one `AskUserQuestion` call up front; the project path is the only setup follow-up (Project only); orphan decisions are the only data-dependent questions and are batched together. Never drip-feed setup questions.
 - **Tool selection**: multi-select — one run can sync to any combination of Claude Code, Codex, and Cursor. Steps 5–8 loop per selected tool.
 - **Copy mode**: physical copy (rsync/cp), not symlink — cross-platform safe (Windows-friendly).
-- **Scope**: `skills/` always; `agents/` if present.
+- **Scope**: `skills/` always; `agents/` if present. **Global is the default and normal choice.** Project scope exists only for repos whose developers install nothing globally — skills resolve personal-over-project, so a project copy is dead for anyone who also synced globally. Warn about this when Project is chosen.
 - **Selection**: sync everything, no per-item picker.
 - **Overwrite**: silent overwrite at item level.
 - **Deletion**:
