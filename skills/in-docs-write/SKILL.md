@@ -24,7 +24,7 @@ From the user's request: **create**, **edit**, or **delete/rename**. If the user
 Body text and metadata **values** are written in the dominant language of the project's existing docs (check a few files or the index). Field names are always English.
 
 ### 4a. Create
-1. Pick `type` (ask only if genuinely ambiguous) and the matching template from `## Templates` below.
+1. Pick `type` (ask only if genuinely ambiguous) and the matching template from `## Templates` below. **Exception — ADRs:** this skill does not author Architecture Decision Records. If the user wants to record or change an architecture decision (`type` would be `adr`), stop and delegate to `/in-adr`, which owns ADR numbering, the immutable superseding lifecycle, and the `docs/adr/README.md` register. (`adr` remains a valid taxonomy value — an existing ADR is still classified and pointed to from the index — but it is created and maintained only via `/in-adr`.)
 2. Place the file: default under `docs/` in a subfolder matching the type or system (follow the placement pattern already visible in the index); a doc tightly coupled to one module may live next to that module's code.
 3. Fill **all** frontmatter fields — none may be omitted:
    - `type`, `status` (new docs start as `draft` unless the user says otherwise), `system`, `entities`, `answers` (2–5 concrete questions the doc answers — the routing field), `related`, `source_files`, `last_reviewed` (today).
@@ -144,18 +144,10 @@ last_reviewed: <YYYY-MM-DD>
 ```
 
 ### adr
-```md
-# ADR-<NNN>: <decision title>
-
-## Summary
-## Status
-<proposed | accepted | superseded by ADR-XXX>
-
-## Context
-## Decision
-## Alternatives considered
-## Consequences
-```
+ADRs are **not** authored by this skill. Use `/in-adr` — it owns ADR numbering, the
+MADR-4.0 template, the immutable superseding lifecycle, and the `docs/adr/README.md`
+register. (`adr` stays a taxonomy value so existing ADRs are still classified and
+surfaced via the single index pointer to the register.)
 
 ### troubleshooting
 ```md

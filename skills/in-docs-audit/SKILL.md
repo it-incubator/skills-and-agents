@@ -28,6 +28,7 @@ Run `git rev-parse --show-toplevel` to find `<repo_root>`. Collect all `.md` and
 - dependency/build/service dirs: `node_modules`, `.git`, `dist`, `build`, `out`, `coverage`, `.next`, `.turbo`, `vendor`, `.idea`, `.vscode`
 - agent-harness files and dirs: `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.codex/`, `.cursor/`, `.github/copilot-instructions.md`
 - `docs/INDEX.md` itself (it is output, not input)
+- **individual ADR files** inside the ADR folder (`docs/adr/`, or `doc/architecture/decisions/` / `docs/decisions/` if the repo uses one of those) — this folder is **self-managed by `/in-adr`**. Its files carry their own MADR frontmatter (not the docs contract), so the auditor never rewrites them. The folder is represented in the index by a **single pointer** to its register `README.md` (see step 6), exactly like `docs/for-api-clients/`.
 
 Documents outside `docs/` (module READMEs, diagrams next to code) are **indexed in place** — never moved.
 
@@ -132,6 +133,7 @@ Rules:
 - One entry per document, grouped by `type`, sorted by path within a group.
 - Entries are derived from the frontmatter written in step 4 — the index never contains information absent from the document itself (single source of truth is the doc).
 - No "retrieval hints" section: routing is carried by `answers`/`entities` per entry.
+- **Self-managed folders get one pointer, not one row per file.** For the ADR register (`docs/adr/README.md`, `type: adr`) and the API-client journal (`docs/for-api-clients/README.md`, `type: api`), add a single entry pointing at the folder's `README.md` — never one entry per ADR / per journal file. If the register `README.md` is absent (an ADR folder exists but was never processed by `/in-adr`), flag it in the report rather than indexing the raw files.
 
 ### 7. Wire the contract into `AGENTS.md` (canonical) and point `CLAUDE.md` at it
 The documentation contract is tool-agnostic, so its single source of truth is `AGENTS.md` at the repo root — the file Claude Code, Codex, Cursor and other agents all read. `CLAUDE.md` must not carry its own copy; it only references `AGENTS.md`.
