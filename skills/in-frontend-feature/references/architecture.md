@@ -6,18 +6,36 @@ The application has domain modules and global composition/infrastructure layers.
 
 ```text
 src/
-├── app/                 # Next.js route entry points
+├── app/                 # Next.js route entry points, app-wide providers
 ├── modules/
 │   ├── auth/            # Authentication, profile, authentication session
 │   ├── interview/       # Rooms, assessments, roadmap, skills
 │   └── payments/        # Balance, subscriptions, purchases
-├── widgets/             # Cross-module compositions
-└── shared/              # Cross-module primitives and infrastructure
+├── compositions/        # Cross-module compositions (blocks and whole pages)
+└── shared/              # Cross-module primitives, infrastructure, app-wide UI services
 ```
 
-Use the target project's actual domains. Domain code stays in its owning module regardless of the number of consumers. A dashboard composes a balance from payments and an avatar from auth in `src/widgets/dashboard/`; neither entity moves to global shared.
+Use the target project's actual domains. Domain code stays in its owning module regardless of the number of consumers. A dashboard composes a balance from payments and an avatar from auth in `src/compositions/dashboard/`; neither entity moves to global shared.
 
-Modules must not import each other. Coordinate cross-module scenarios at the top-level composition boundary through props/callbacks. Extract genuinely common primitives, utilities, or infrastructure to `src/shared/`. Module-specific primitives belong to that module's `shared/`.
+Modules must not import each other. Coordinate cross-module scenarios in `src/compositions/` through props/callbacks. Extract genuinely common primitives, utilities, or infrastructure to `src/shared/`. Module-specific primitives belong to that module's `shared/`; when one is needed outside its module, move it to `src/shared/` rather than importing a module's shared from outside.
+
+`compositions` is deliberately not named `widgets`: it composes module widgets, which an FSD `widgets` layer could not import from its own rank.
+
+## App-wide UI services
+
+Non-domain client state needed across pages and modules (theme, sidebar, toasts, a globally opened modal) lives in global shared, one purpose-named segment per service:
+
+```text
+src/shared/
+├── theme/
+│   ├── theme.store.ts
+│   ├── use-theme.ts
+│   └── index.ts         # Public API of the service
+├── sidebar/
+└── toast/
+```
+
+Keep a service's store, hooks, and UI together behind its `index.ts`. Mount its providers, toasters, or pre-hydration scripts from `src/app/layout.tsx`; the app layer only wires them, because modules cannot import from `src/app/`. A service holds UI state only: no domain logic and no imports from modules. Name the segment by purpose (`theme`, `toast`), never by kind (`store`, `services`, `modals`). Domain client state stays in the owning module's entity or page model.
 
 ## Layers, slices, segments
 
@@ -70,18 +88,25 @@ Grow UI locally: start in the component, split large pieces into `components/`, 
 |---|---|
 | Page `ui/components/` | Private UI for one page |
 | Parent UI's `components/` | Private sub-components of that entity, feature, or widget UI |
-| `entities/{entity}/` | All three: actual repeated UI/data across 2+ pages; identifiable business object; value in collecting ownership of its model and representation |
+| `entities/{entity}/` | All three: actual repeated UI/data across 2+ pages; identifiable business object; value in collecting ownership of its model and representation. Also when several slices must read or invalidate the same cached data |
 | `features/{action}/` | A non-trivial action: business invariants/validation/branching, coordination of entities, or context-dependent success behavior needing a reusable callback API |
 | Module `widgets/{widget}/` | A meaningful self-contained complex composition of entities/features; reuse supports extraction but is not mandatory |
 | Module `shared/` | Primitives reused across slices in that module |
-| Global `shared/` | Truly cross-module primitives, utilities, infrastructure |
-| Global `widgets/` | Composition of different modules, even if used once |
+| Global `shared/` | Truly cross-module primitives, utilities, infrastructure, app-wide UI services |
+| Global `compositions/` | Composition of different modules, even if used once |
 
 Entity UI may be a card or a list; an entity may initially have only a model. A trivial deletion does not require a feature. Merely placing multiple components together does not require a widget. There is no five-use threshold for widgets.
 
 Examples: a skill card repeated on roadmap and assessment pages can become a skill entity UI; a room/assessment close scenario can become a feature; a one-page timer stays local. Cross-module actions are coordinated above modules rather than bypassing their import boundary.
 
 When promoting a local query model to an entity, move query keys with it and preserve their values so cache identity does not change accidentally. Leave page-specific state behind. Local mutations stay in page models until feature extraction is justified.
+
+### Cache invalidation across slices
+
+Page-local query keys are private, and copying literal key arrays is not allowed. A mutation living outside the slice that owns the keys therefore has two legitimate options:
+
+- **One owning page:** the mutation exposes an `onSuccess` callback, and the page that owns the keys invalidates its own cache.
+- **Cache shared by several slices:** the keys and queries move to `entities/{entity}/model/`, and every mutation invalidates through the entity's exported keys. Several pages repeating the same invalidation callback is the signal to do this.
 
 ## Imports
 
@@ -94,10 +119,11 @@ These rules govern dependencies between slices; files may import their own slice
 | Module features | Own module entities, shared; global shared |
 | Module entities | Own module shared; global shared |
 | Module shared | Global shared |
-| Global `src/widgets/` | Modules' entities/features; global shared; its own private implementation |
+| Global `src/compositions/` | Modules' widgets, features, entities; global shared; its own private implementation |
 | Global shared | No module imports |
+| `src/app/` | Module pages, compositions, global shared |
 
-Lower layers never import higher layers. Do not import sibling slices' internals. Top-level widgets do not import module pages. Follow any narrower public export conventions already established by the project.
+Lower layers never import higher layers. Do not import sibling slices' internals. Compositions do not import module pages, module shared, or each other. Story files are the one exception to the module-shared boundary: a composition's stories may import plain fixtures from `modules/*/shared/_mocks/`. Follow any narrower public export conventions already established by the project.
 
 ## Router integration
 
@@ -108,10 +134,10 @@ Routes live in `src/app/`; business page implementation lives in the owning modu
 export { default } from "@/modules/interview/pages/roadmap/ui";
 
 // src/app/dashboard/page.tsx (a separate file)
-export { default } from "@/widgets/dashboard/ui";
+export { default } from "@/compositions/dashboard/ui";
 ```
 
-Keep required route-specific Next.js exports at the appropriate entry point. Do not assume an old `src/app/profile/assessment-pass/` directory is an architectural reference without inspecting it; the target project's actual implementation may differ.
+Keep required route-specific Next.js exports at the appropriate entry point.
 
 ## Naming
 
@@ -122,8 +148,8 @@ Keep required route-specific Next.js exports at the appropriate entry point. Do 
 | Story files | `ComponentName.stories.tsx`, beside `index.tsx`, importing `./index` |
 | Query hooks | `use{Entity}Query` or a meaningful contextual variant |
 | Mutation hooks | `use{Action}{Entity}` |
-| Zustand hooks/files | `use{Entity}Store`, `{entity}.store.ts` |
-| Query key objects | `{entity}Keys` in `queryKeys.ts` |
+| Zustand hooks/files | `use{Owner}Store`, `{owner}.store.ts`; the owner is the slice or service that holds it (`roadmap`, `user`, `sidebar`) |
+| Query key objects | `{entity}Keys` in `queryKeys.ts`, singular like the slice name (`assessmentKeys`, `roomKeys`) |
 | Utilities | `{domain}.utils.ts` |
 | Configuration | `{domain}.config.ts` |
 

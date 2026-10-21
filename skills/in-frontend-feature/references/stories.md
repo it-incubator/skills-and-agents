@@ -16,7 +16,7 @@ ui/assessment-info-card/
 └── AssessmentInfoCard.stories.tsx
 ```
 
-Use CSF3 with typed `Meta` and `StoryObj`, importing the component from `./index`. Put mock data at the top of the story file, then metadata/default handlers, then named stories.
+Use CSF3 with typed `Meta` and `StoryObj`, importing the component from `./index`. Import the story types from the package the installed Storybook version and framework integration document; the example below uses a placeholder. Put mock data at the top of the story file, then metadata/default handlers, then named stories.
 
 Provide `Default` with realistic data. Provide `Loading` and `Empty` wherever these states are meaningful; use an indefinitely delayed response for network loading and the API's real empty shape for empty states. For components without loading or data semantics, cover meaningful prop variants instead of inventing states. Add meaningful error, permission, boundary, and interaction variants for the feature being changed.
 
@@ -26,7 +26,7 @@ Start with data in the story file. Never import fixtures from another story file
 
 When several stories intentionally model one coordinated scenario and benefit from joint updates, put plain data fixtures in `modules/{module}/shared/_mocks/`. For example, a coherent session/assessment/participants dataset may be shared; unrelated cards can duplicate a simple example user.
 
-Only plain data objects belong there. Define MSW handlers in the story files so the requests creating a state remain visible. Use realistic schema examples where available, not real personal data.
+Only plain data objects belong there. Stories of a `src/compositions/` slice may import these fixtures from several modules; this is the one exception to the rule that module shared stays internal. Define MSW handlers in the story files so the requests creating a state remain visible. Use realistic schema examples where available, not real personal data.
 
 ## Generated response types
 
@@ -35,7 +35,7 @@ Every mocked response body must use `satisfies` against the generated endpoint r
 Example for a project whose actual schema has this operation:
 
 ```tsx
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "<storybook-framework-package>"; // verify for the installed version
 import { delay, http, HttpResponse } from "msw";
 import type { paths } from "@/shared/api/main-api-schema";
 import { AssessmentInfoCard } from "./index";
@@ -95,7 +95,7 @@ For a Next.js project, identify its supported Storybook Next.js framework integr
 
 In preview configuration:
 
-- Import the real global CSS path; in the source project it was `../src/app/globals.css`, not `../src/globals.css`.
+- Import the real global CSS path, relative to `.storybook/` (for example `../src/app/globals.css` when the file lives in `src/app/`); verify it exists rather than guessing.
 - Configure the API client before its first use. A mock base URL still must satisfy the client's URL rules. MSW intercepts matching requests, not automatically every possible request.
 - Initialize MSW and register `mswLoader` according to the installed addon's API.
 - Provide QueryClientProvider and any other required providers, router context, or client-state resets.
@@ -111,8 +111,8 @@ Typical scripts are `storybook dev -p 6006` and `storybook build`; use the targe
 
 If a working Storybook MCP integration is available, use it to discover actual component props/stories, obtain story instructions, preview affected stories, and run supported accessibility/interaction checks. Inspect the exposed tools rather than assuming exact names or capabilities.
 
-The source project's example used `@storybook/addon-mcp`, a running Storybook at port 6006, and an HTTP endpoint `http://localhost:6006/mcp`. Tool names included `list-all-documentation`, `get-documentation`, `get-documentation-for-story`, `get-storybook-story-instructions`, `preview-stories`, and `run-story-tests`. Treat these as discovery hints, not a guarantee of the installed version.
+A typical setup uses `@storybook/addon-mcp`, a running Storybook at port 6006, and an HTTP endpoint `http://localhost:6006/mcp`. Tool names have included `list-all-documentation`, `get-documentation`, `get-documentation-for-story`, `get-storybook-story-instructions`, `preview-stories`, and `run-story-tests`. Treat these as discovery hints, not a guarantee of the installed version.
 
-Some integrations expose a generated component manifest (the source example used `/manifests/components.json`) and a `!manifest` exclusion tag. Verify support before relying on them. Do not assume the addon, manifest, accessibility tests, or user-specific MCP configuration already exist.
+Some integrations expose a generated component manifest (for example `/manifests/components.json`) and a `!manifest` exclusion tag. Verify support before relying on them. Do not assume the addon, manifest, accessibility tests, or user-specific MCP configuration already exist.
 
 Use project-supported browser/test/build tooling if MCP is unavailable. Do not edit the user's global agent configuration just to finish an ordinary feature. When adding an MCP integration is requested, use its current official setup and register only the intended server; preserve unrelated settings.

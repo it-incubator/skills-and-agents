@@ -14,6 +14,7 @@ shared/
 │   ├── types.ts            # Genuinely common API aliases/enums
 │   └── utils/unwrap.ts
 ├── ui/                     # Cross-module UI primitives
+├── theme/                  # App-wide UI service (one segment per service)
 ├── config/routes.ts
 └── utils/                  # Common date/format helpers
 ```
@@ -27,12 +28,12 @@ The following paths and response fields are illustrative; verify them against th
 ```ts
 // modules/interview/pages/assessment/model/queryKeys.ts
 const NS = "INTERVIEW";
-export const assessmentsKeys = {
+export const assessmentKeys = {
   all: [NS, "assessments"] as const,
-  current: () => [...assessmentsKeys.all, "current"] as const,
+  current: () => [...assessmentKeys.all, "current"] as const,
   history: (page?: number, limit?: number) =>
-    [...assessmentsKeys.all, "history", page, limit] as const,
-  skills: () => [...assessmentsKeys.current(), "skills"] as const,
+    [...assessmentKeys.all, "history", page, limit] as const,
+  skills: () => [...assessmentKeys.current(), "skills"] as const,
 };
 ```
 
@@ -43,11 +44,11 @@ export const assessmentsKeys = {
 import { useQuery } from "@tanstack/react-query";
 import { getMainClient } from "@/shared/api/main-api-client";
 import { unwrap } from "@/shared/api/utils/unwrap";
-import { assessmentsKeys } from "./queryKeys";
+import { assessmentKeys } from "./queryKeys";
 
 export function useCurrentAssessmentQuery() {
   return useQuery({
-    queryKey: assessmentsKeys.current(),
+    queryKey: assessmentKeys.current(),
     queryFn: () =>
       unwrap(getMainClient().GET("/api/v1/assessments/current")),
   });
@@ -85,7 +86,7 @@ export type AssessmentStatus = Assessment["status"];
 
 Give module namespaces unique values (`INTERVIEW`, `PAYMENTS`, `AUTH` are examples). Entity key factories distinguish resources and query parameters. For rooms, for example, use `[NS, "rooms", roomId]` for detail and `[NS, "rooms", "my", roomId]` for the current participant. Include inputs that affect the response in cache identity.
 
-Features invalidate through the owning entity's exported keys, rather than copying literal key arrays:
+Features invalidate through the owning entity's exported keys, rather than copying literal key arrays. When the keys are still private to one page, the feature exposes an `onSuccess` callback and that page invalidates its own cache; see "Cache invalidation across slices" in the architecture reference.
 
 ```ts
 // features/close-assessment/model/useCloseAssessment.ts
@@ -94,7 +95,7 @@ Features invalidate through the owning entity's exported keys, rather than copyi
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getMainClient } from "@/shared/api/main-api-client";
 import { unwrap } from "@/shared/api/utils/unwrap";
-import { assessmentsKeys } from "@/modules/interview/entities/assessment/model/queryKeys";
+import { assessmentKeys } from "@/modules/interview/entities/assessment/model/queryKeys";
 
 export function useCloseAssessment() {
   const queryClient = useQueryClient();
@@ -104,7 +105,7 @@ export function useCloseAssessment() {
         body: { roomId },
       })),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: assessmentsKeys.all }),
+      queryClient.invalidateQueries({ queryKey: assessmentKeys.all }),
   });
 }
 ```
@@ -116,6 +117,7 @@ Use the project's actual unwrap signature and response handling. Invalidate all 
 - Server data/cache: TanStack Query, including mutation lifecycle. Hooks may be page-local until promoted.
 - Ephemeral local UI state: component `useState`.
 - Client state shared by distant components: use a Zustand store when useful, scoped to the actual owner. A page-local store may live in its `model/`; an entity-owned store belongs in that entity's `model/`.
+- App-wide non-domain UI state (theme, sidebar, toasts): a purpose-named service segment in global shared, such as `src/shared/sidebar/sidebar.store.ts`; see "App-wide UI services" in the architecture reference.
 - Store only UI/client state in Zustand, such as selected skill or sidebar state. Do not duplicate server cache there. Do not use React Query for ephemeral UI state.
 
 Sharing client state within one page does not require extracting an entity or making the store global. Persistence across reloads is a separate requirement, not implicit in choosing Zustand.
