@@ -1,6 +1,6 @@
 ---
 name: in-urls-for-project
-description: Return a project's production, staging, GitHub, and Dokploy project links from docs/project-links.md in a fixed format. Ask for missing URLs or explicit permission to search; never discover them automatically. Maintain the document using in-docs-write conventions. Use for "project urls", "project links", "prod and staging links", "dokploy project link", "ссылки проекта", "урлы проекта", "ссылки на прод и стейджинг", or "ссылка на проект в dokploy".
+description: Return a project's production, staging, GitHub, and Dokploy project links from docs/project-links.md in a fixed format. Ask for missing URLs or explicit permission to search; never discover them automatically, except the GitHub URL taken from git remote origin. Maintain the document using in-docs-write conventions. Use for "project urls", "project links", "prod and staging links", "dokploy project link", "ссылки проекта", "урлы проекта", "ссылки на прод и стейджинг", or "ссылка на проект в dokploy".
 ---
 
 # URLs for Project
@@ -13,8 +13,9 @@ Give developers the project's essential links in one place and preserve them und
 ### 1. Read only the canonical links document
 - Resolve the target repository from the user's context; `git rev-parse --show-toplevel` is allowed to locate its root.
 - The canonical URL source is exactly `<repo_root>/docs/project-links.md`, using the format in step 4. Check this exact path and read it if present. Do not search for alternative documents or URLs.
-- Project instructions still apply, but ordinary lookup must not scan repository folders, other docs, README files, code, deployment configuration, Git remotes, or external integrations for links. Reading `docs/INDEX.md` for documentation maintenance does not authorize URL discovery through its entries.
-- Return only URLs explicitly recorded in the canonical table or supplied by the user in this conversation. Do not derive missing URLs, even the GitHub URL from a remote.
+- Project instructions still apply, but ordinary lookup must not scan repository folders, other docs, README files, code, deployment configuration, Git remotes other than `origin`, or external integrations for links. Reading `docs/INDEX.md` for documentation maintenance does not authorize URL discovery through its entries.
+- Return only URLs explicitly recorded in the canonical table or supplied by the user in this conversation. Do not derive missing URLs, with one exception below.
+- **GitHub from `origin`:** if the `github` entry is missing, run `git remote get-url origin`. When it points to GitHub, convert it to the HTTPS web URL (SSH syntax to HTTPS, without `.git`) and return it marked `(from git remote origin)`. Do not ask for it. Never use other remotes (`upstream`, a template) this way. If `origin` is absent or not on GitHub, leave `github` as `Unknown`.
 - A lookup alone does not change files or bump `last_reviewed`.
 
 ### 2. Ask before discovering missing URLs
@@ -39,6 +40,8 @@ Whether links were read, supplied, or discovered, do not infer that an environme
 If `docs/project-links.md` is absent, always suggest creating it for future sessions and teammates. Combine this proposal with the missing-URL question rather than asking separately:
 
 > 😠 `docs/project-links.md` is missing. Please provide the production, staging, GitHub, and both Dokploy project URLs, or explicitly authorize me to search the codebase for them. Let's save them in this document so you and other developers don't have to repeat this. Shall I create it once we have the values?
+
+Leave GitHub out of the request when it was resolved from `origin`; when saving, record that URL and cite `git remote origin` as its source in `## Notes`.
 
 - If the document exists but has missing or malformed entries, offer to repair those entries in the same document.
 - Be persistent: if the user answers only the URL questions and overlooks the save proposal, bring it up once more after incorporating their answers. On a later invocation, offer again if the document is still missing.
